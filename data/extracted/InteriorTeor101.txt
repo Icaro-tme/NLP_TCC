@@ -1,0 +1,109 @@
+SCES, TRECHO 3, Setor de Clubes Esportivos Sul - Polo 8 - Lote 9 - Bairro: Asa Sul - CEP: 70200-003 - Fone: (61) 3022-7000 - www.cjf.jus.br - Email: turma.uniformi@cjf.jus.br
+
+Pedido de Uniformização de Interpretação de Lei (Turma) Nº 0003757-82.2020.4.03.6304/ SP
+
+RELATOR : Juiz Federal GIOVANI BIGOLIN
+REQUERENTE : MENEZIO VIEIRA DE LIMA
+REQUERIDO : INSTITUTO NACIONAL DO SEGURO SOCIAL - INSS
+RELATÓRIO
+Trata-se de pedido de uniformização de interpretação de lei federal (PEDILEF) interposto pela parte autora e dirigido à Turma Nacional de Uniformização de Jurisprudência dos Juizados Especiais Federais (TNU), contra acórdão da 10ª Turma Recursal de São Paulo, o qual deu provimento ao recurso inominado interposto pelo INSS, para o fim de afastar o período de labor especial exercido de 13/01/1997 a 31/12/2016, no qual a parte autora laborou como “pedreiro refratarista” e “caldeireiro I”, exposta de modo ocasional e intermitente ao agente químico benzeno - evento 1, ACOR8 .
+Em suas razões, a parte autora aduz a ocorrência de divergência de entendimento entre o acórdão recorrido e o PEDILEF nº. 0500667-18.2015.4.05.8312, Juíza Federal Relatora Gisele Chaves Sampaio Alcântara, DJe 23/02/2017, segundo a qual foi dispensada a mensuração no ambiente do trabalho (análise qualitativa) da exposição ao agente químico poeira de sílica , por se tratar de elemento reconhecidamente cancerígeno em humanos, consoante a LINACH, Grupo 1, com registro no Chemical Abstract Service - CAS n. 014808-60-7 - evento 1, OUT9 .
+Ainda, sustenta que não há um nível seguro de exposição ao agente nocivo benzeno , de modo que a exposição qualitativa já lhe garante o direito à conversão do período de labor especial, por se tratar de agente cancerígeno, razões pelas quais postula a admissão do pedido de uniformização federal.
+O PEDILEF não foi admitido na origem ( evento 1, DECADMPU13 ) e, após interposição de agravo interno, foi admitido pela Presidência da Turma Nacional de Uniformização ( evento 4, DESPADEC1 ).
+Decorrido o prazo, sem apresentação de contrarrazões pela parte adversa, vieram os autos conclusos para julgamento.
+É o relatório.
+Passo a decidir.
+VOTO
+​O pedido de uniformização de interpretação de lei federal está previsto no art. 14, da Lei n.º 10.259/2001, sendo cabível quando “ houver divergência entre decisões sobre questões de direito material proferidas por Turmas Recursais na interpretação da lei ”.
+Por questões de direito material, entende-se os pontos controvertidos de direito, ou seja, aqueles alusivos à construção, a partir dos enunciados dos textos normativos, da norma jurídica do caso concreto, desde que, para o deslinde da controvérsia, não seja necessária a reavaliação de provas nem o reexame dos fatos concretamente discutidos na demanda.
+Para demonstrar a divergência, é necessário o confronto do acórdão recorrido com acórdão paradigma de Turma Recursal (ou Regional) de região diferente, da própria TNU ou do STJ (art. 14, § 4º). Também é possível que se utilize, para tais fins, enunciado de súmula da TNU ou do STJ.
+No que pertine ao específico objeto recursal , versa o presente incidente sobre a possibilidade de conversão do período de labor especial em comum em face da exposição da parte autora ao agente nocivo benzeno, de modo eventual e intermitente, para fins de revisão do benefício de aposentadoria por tempo de contribuição da qual é titular desde 08/07/2019.
+O acórdão recorrido foi exarado com os seguintes fundamentos quanto aos temas controversos ( evento 1, ACOR6 ):
+"(...)
+JUIZ FEDERAL CAIO MOYSÉS DE LIMA: Trata-se de ação movida por MENEZIO VIEIRA DE LIMA em face do INSTITUTO NACIONAL DO SEGURO SOCIAL - INSS, que tem por objeto a revisão de aposentadoria por tempo de contribuição, a partir da data de entrada do requerimento administrativo (DER), em 08/07/2019, mediante o cômputo de atividade especial exercida no período de 13/01/1997 a 31/12/2016.
+A sentença julgou parcialmente procedente o pedido, condenando o réu a (i) averbar, como tempo de serviço especial, o período de 13/01/1997 a 31/12/2016; (ii) revisar a aposentadoria por tempo de contribuição do autor, a partir de 08/07/2019 (DIB); e (iii) pagar as diferenças acumuladas, nos termos do Manual de Orientação de Procedimentos para os Cálculos na Justiça Federal, em vigor no momento da execução do julgado.
+O réu recorre, sustentando, em síntese, que (i) a exposição ao agente químico se dava de modo ocasional e intermitente; (ii) o fato de a avaliação do benzeno ser qualitativa, não implica a desnecessidade de se identificar a sua concentração no ambiente de trabalho; (iii) no caso dos autos não ficou comprovado que a presença do benzeno no ambiente de trabalho em concentração superior ao limite de detecção, sendo a exposição ínfima e irrelevante para fins de higiene ocupacional; e (iv) a profissiografia é incompatível com a exposição ao benzeno, inexistindo a habitualidade e permanência.
+O autor ofereceu contrarrazões.
+É o relatório.
+voto
+JUIZ FEDERAL CAIO MOYSÉS DE LIMA (RELATOR):
+Tem razão o recorrente.
+A partir da entrada em vigor da Lei nº 9.032/95 passou-se a exigir a habitualidade e permanência da exposição ao agente nocivo.
+Assim, é preciso aferir caso a caso, com base na descrição da atividade exercida pelo segurado, se a exposição ao agente nocivo constituía aspecto intrínseco e indissociável do exercício da referida atividade.
+No presente caso, no período controvertido, o autor exerceu as atividades de “pedreiro refratarista” e “caldeireiro I”, assim descritas no PPP :
+
+O documento expressamente menciona que “ o trabalho exercido na área referido ao agente químico Benzeno, é executado de forma ocasional e intermitente ” .
+Nota-se, portanto, que a exposição ao benzeno era ocasional , ou seja, não era indissociável das atribuições do cargo do autor, o que impede o reconhecimento da atividade como especial.
+Diante do exposto, voto por dar provimento ao recurso da parte ré , para julgar improcedente a ação.
+Sem condenação em honorários, porque somente o recorrente vencido deve arcar com as verbas sucumbenciais, nos termos do art. 55 da Lei nº 9.099/95, combinado com o art. 1º da Lei nº 10.259/2001.
+É o voto."
+Em suas razões, a parte autora aduz a ocorrência de divergência de entendimento entre o acórdão recorrido e o ​PEDILEF nº. 0500667-18.2015.4.05.8312, Juíza Federal Relatora Gisele Chaves Sampaio Alcântara, DJe 23/02/2017, segundo a qual foi dispensada a mensuração no ambiente do trabalho (análise qualitativa) da exposição ao agente químico poeira de sílica , por se tratar de elemento reconhecidamente cancerígeno em humanos, consoante a LINACH, Grupo 1, com registro no Chemical Abstract Service - CAS n. 014808-60-7 - evento 1, OUT9 .
+Ainda, sustenta que não há um nível seguro de exposição ao agente nocivo benzeno , de modo que a exposição qualitativa já lhe garante o direito à conversão do período de labor especial, por se tratar de agente cancerígeno, razões pelas quais postula a admissão do pedido de uniformização federal.
+​​De início, em relação ao teor do acórdão paradigma, cabe observar que não houve o necessário cotejo analítico entre o julgado recorrido e o entendimento da TNU na peça recursal pela parte autora, circunstância que atrai a aplicação do art. 14, V, 'c', do RITNU.
+Limitou-se a parte recorrente a referir o PEDILEF nº. 0500667-18.2015.4.05.8312, no qual foi dispensada a mensuração no ambiente do trabalho (análise qualitativa) da exposição ao agente químico poeira de sílica , por se tratar de elemento reconhecidamente cancerígeno em humanos, consoante a LINACH, Grupo 1, com registro no Chemical Abstract Service - CAS n. 014808-60-7, sem realizar o devido cotejo analítico, sem comparar seus termos e fundamentos com aqueles adotados pelo acórdão recorrido, a fim de realçar a controvérsia.
+No ponto, cumpre ressaltar que não basta a mera indicação do pretenso dissídio no corpo do texto do Pedido de Uniformização sem que o recorrente demonstre, de forma pormenorizada e analítica, que para uma mesma situação fática foram dadas interpretações ou soluções jurídicas distintas.
+No caso, observo que a parte autora recorrente não se desincumbiu de realizar o devido cotejo analítico que permita verificar similitude fático-jurídica entre o acórdão recorrido e o acórdão paradigma da TNU. Não houve o exame e confronto da situação fática e jurídica contida no julgamento citado com o acórdão ora combatido, havendo mera transcrição de trechos.
+Ademais, procedendo ao cotejo analítico entre o julgado de origem e o paradigma apontado nesta senda recursal, também verifica-se a ausência de similitude fática e jurídica entre o acórdão recorrido e o aresto colacionado no que tange à questão controvertida nos autos.
+Veja-se que o acórdão recorrido afastou a especialidade do labor em face da exposição eventual e intermitente da parte autora, no exercício do cargo de “pedreiro refratarista” e “caldeireiro I”, ao agente nocivo benzeno , situação que não se amolda ao acórdão paradigma colacionado nas razões recursais (​ evento 1, OUT9 ​), visto que, naquele caso em específico, foi analisada a exposição ao agente nocivo poeira mineral (sílica) para o segurado que exerceu atividade agropecuária .
+Nesse contexto, verifica-se que a parte autora não apresentou paradigma válido para comprovar a divergência com o Acórdão objurgado em questão de direito material, tão pouco comprovou a similitude fática e jurídica entre os processos em análise, não atendendo, pois, às exigências do art. 14, da Lei nº 10.259/2001.
+Além disso, cumpre ressaltar que a Turma Recursal de origem, mediante análise soberana do acervo probatório , concluiu que a exposição intermitente da parte autora ao agente químico benzeno não pode ser considerada especial após 29/04/1995, em face da superveniência da Lei nº 9.032/95, sendo indispensável a exposição permanente, não ocasional nem intermitente ao agente nocivo, para que a atividade seja qualificada como especial .
+Desta feita, a análise do acervo probatório produzido no feito, no qual consta na descrição das atividades desempenhadas pelo autor na utilização de benzeno, bem como a necessidade de produção de prova quanto à especificação dos agentes nocivos aos quais esteve exposto no desempenho do labor como "“pedreiro refratarista” e “caldeireiro I”, é questão que refoge aos limites desde pedido de uniformização, nos expressos termos da Súmula 42:
+Não se conhece de incidente de uniformização que implique reexame de materia de fato.
+Desse modo, salvo melhor juízo, o incidente não preenche os pressupostos necessários à sua admissibilidade.
+Ante o exposto, voto por NÃO CONHECER O PEDIDO DE UNIFORMIZAÇÃO DE INTERPRETAÇÃO DE LEI interposto pela parte autora.
+Documento eletrônico assinado por GIOVANI BIGOLIN, Juíza Federal , na forma do artigo 1º, inciso III, da Lei 11.419, de 19 de dezembro de 2006. A conferência da autenticidade do documento está disponível no endereço eletrônico https://eproctnu.cjf.jus.br/eproc/externo_controlador.php?acao=consulta_autenticidade_documentos, mediante o preenchimento do código verificador 900000285173v11 e do código CRC 9d3134f5 . Informações adicionais da assinatura: Signatário (a): GIOVANI BIGOLIN Data e Hora: 11/04/2025, às 15:11:33
+
+
+Conferência de autenticidade emitida em 28/04/2025 16:59:30.
+SCES, TRECHO 3, Setor de Clubes Esportivos Sul - Polo 8 - Lote 9 - Bairro: Asa Sul - CEP: 70200-003 - Fone: (61) 3022-7000 - www.cjf.jus.br - Email: turma.uniformi@cjf.jus.br
+
+Pedido de Uniformização de Interpretação de Lei (Turma) Nº 0003757-82.2020.4.03.6304/ SP
+
+RELATOR : Juiz Federal GIOVANI BIGOLIN
+REQUERENTE : MENEZIO VIEIRA DE LIMA
+REQUERIDO : INSTITUTO NACIONAL DO SEGURO SOCIAL - INSS
+EMENTA
+pedido de uniformização federal. previdenciário. aposentadoria especial. agente químico benzeno. exposição eventual e intermitente. ausência de cotejo analítico e similitude fática. reexame de matéria fática. súmula 42 da tnu. pedido não conhecido.
+1. Pedido de uniformização de interpretação de lei federal (PEDILEF) interposto pela parte autora e dirigido à Turma Nacional de Uniformização de Jurisprudência dos Juizados Especiais Federais (TNU), contra acórdão da 10ª Turma Recursal de São Paulo, o qual deu provimento ao recurso inominado interposto pelo INSS, para o fim de afastar o período de labor especial exercido de 13/01/1997 a 31/12/2016, no qual a parte autora laborou como “pedreiro refratarista” e “caldeireiro I”, exposta de modo ocasional e intermitente ao agente químico benzeno.
+2.   A parte autora aduz a ocorrência de divergência de entendimento entre o acórdão recorrido e o PEDILEF nº. 0500667-18.2015.4.05.8312, Juíza Federal Relatora Gisele Chaves Sampaio Alcântara, DJe 23/02/2017, segundo a qual foi dispensada a mensuração no ambiente do trabalho (análise qualitativa) da exposição ao agente químico poeira de sílica , por se tratar de elemento reconhecidamente cancerígeno em humanos, consoante a LINACH, Grupo 1, com registro no Chemical Abstract Service - CAS n. 014808-60-7.
+3. O objeto recursal versa sobre a possibilidade de conversão do período de labor especial em comum em face da exposição da parte autora ao agente nocivo benzeno, de modo eventual e intermitente, para fins de revisão do benefício de aposentadoria por tempo de contribuição da qual é titular desde 08/07/2019.
+4. Em relação ao teor do acórdão paradigma, cabe observar que não houve o necessário cotejo analítico entre o julgado recorrido e o entendimento da TNU na peça recursal pela parte autora, circunstância que atrai a aplicação do art. 14, V, 'c', do RITNU.
+5. Ausência de similitude fática e jurídica entre o acórdão recorrido e o aresto colacionado no que tange à questão controvertida nos autos, uma vez que o acórdão recorrido afastou a especialidade do labor em face da exposição eventual e intermitente da parte autora, no exercício do cargo de “pedreiro refratarista” e “caldeireiro I”, ao agente nocivo benzeno, situação que não se amolda ao acórdão paradigma colacionado nas razões recursais, visto que, naquele caso em específico, foi analisada a exposição ao agente nocivo poeira mineral (sílica) para o segurado que exerceu atividade agropecuária.
+6. A análise do acervo probatório produzido no feito, no qual consta na descrição das atividades desempenhadas pelo autor na utilização de benzeno, bem como a necessidade de produção de prova quanto à especificação dos agentes nocivos aos quais esteve exposto no desempenho do labor como "“pedreiro refratarista” e “caldeireiro I”, é questão que refoge aos limites desde pedido de uniformização, nos expressos termos da Súmula 42 da TNU.
+7. Pedido de Uniformização não conhecido.
+ACÓRDÃO
+A Turma Nacional de Uniformização decidiu, por unanimidade, NÃO CONHECER O PEDIDO DE UNIFORMIZAÇÃO DE INTERPRETAÇÃO DE LEI interposto pela parte autora.
+Brasília, 09 de abril de 2025.
+Documento eletrônico assinado por GIOVANI BIGOLIN, Juíza Federal , na forma do artigo 1º, inciso III, da Lei 11.419, de 19 de dezembro de 2006. A conferência da autenticidade do documento está disponível no endereço eletrônico https://eproctnu.cjf.jus.br/eproc/externo_controlador.php?acao=consulta_autenticidade_documentos, mediante o preenchimento do código verificador 900000285199v5 e do código CRC 0f5507a3 . Informações adicionais da assinatura: Signatário (a): GIOVANI BIGOLIN Data e Hora: 11/04/2025, às 15:12:04
+
+
+Conferência de autenticidade emitida em 28/04/2025 16:59:30.
+EXTRATO DE ATA DA SESSÃO VIRTUAL DE 03/04/2025 A 09/04/2025
+
+Pedido de Uniformização de Interpretação de Lei (Turma) Nº 0003757-82.2020.4.03.6304/ SP
+
+RELATOR : Juiz Federal GIOVANI BIGOLIN
+PRESIDENTE : Ministro ROGERIO SCHIETTI MACHADO CRUZ
+PROCURADOR(A) : BRASILINO PEREIRA DOS SANTOS
+REQUERENTE : MENEZIO VIEIRA DE LIMA
+ADVOGADO(A) : DANIELA APARECIDA FLAUSINO NEGRINI (OAB SP241171)
+REQUERIDO : INSTITUTO NACIONAL DO SEGURO SOCIAL - INSS
+Certifico que este processo foi incluído na Pauta da Sessão Virtual, realizada no período de 03/04/2025, às 00:00, a 09/04/2025, às 23:59, na sequência 69, disponibilizada no DE de 25/03/2025.
+Certifico que a TURMA NACIONAL DE UNIFORMIZAÇÃO, ao apreciar os autos do processo em epígrafe, proferiu a seguinte decisão:
+A TURMA NACIONAL DE UNIFORMIZAÇÃO DECIDIU, POR UNANIMIDADE, NÃO CONHECER O PEDIDO DE UNIFORMIZAÇÃO DE INTERPRETAÇÃO DE LEI INTERPOSTO PELA PARTE AUTORA.
+RELATOR DO ACÓRDÃO : Juiz Federal GIOVANI BIGOLIN
+Votante : Juiz Federal GIOVANI BIGOLIN
+Votante : Juiz Federal PAULO ROBERTO PARCA DE PINHO
+Votante : Juiz Federal NAGIBE DE MELO JORGE NETO
+Votante : Juiz Federal JOÃO CARLOS CABRELON DE OLIVEIRA
+Votante : Juiz Federal FABIO DE SOUZA SILVA
+Votante : Juiz Federal LEONARDO CASTANHO MENDES
+Votante : Juíza Federal MONIQUE MARCHIOLI LEITE
+Votante : Juiz Federal IVANIR CESAR IRENO JUNIOR
+Votante : Juiz Federal RODRIGO RIGAMONTE FONSECA
+Votante : Juíza Federal FLAVIA HEINE PEIXOTO
+Votante : Juiz Federal NEIAN MILHOMEM CRUZ
+Votante : Juíza Federal LILIAN OLIVEIRA DA COSTA TOURINHO
+VIVIANE DA COSTA LEITE BORTOLINI
+Secretária
+Conferência de autenticidade emitida em 28/04/2025 16:59:30.

@@ -1,0 +1,7 @@
+beautifulsoup4
+lxml
+transformers
+sentence-transformers
+torch
+sacrebleu
+sentencepiece

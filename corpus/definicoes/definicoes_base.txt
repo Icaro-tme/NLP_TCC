@@ -1,0 +1,6 @@
+Ação: procedimento jurídico utilizado para submeter uma demanda ao juiz competente.
+Sentença: decisão definitiva proferida por um juiz encerrando uma fase processual.
+Mandado de segurança: medida judicial para proteger direito líquido e certo quando o responsável por garantir esse direito praticar ato ilegal.
+Recurso: instrumento processual que busca revisar decisão judicial.
+Litisconsórcio: participação conjunta de diferentes partes na mesma ação judicial.
+Embargos de declaração: pedido de esclarecimento sobre ponto obscuro ou contraditório em decisão judicial.
