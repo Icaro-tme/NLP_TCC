@@ -23,6 +23,18 @@ MT_MODELS = {
     "es": {"repo": "facebook/m2m100_418M", "src_lang": "pt", "tgt_lang": "es"},
 }
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+RAG_TOP_K = 1  
+
+
+def natural_key(name: str) -> List[object]:
+    """Split a string into text and integer chunks so that InteriorTeor2 < InteriorTeor10."""
+    parts: List[object] = []
+    for chunk in re.split(r"(\d+)", name):
+        if chunk.isdigit():
+            parts.append(int(chunk))
+        elif chunk:
+            parts.append(chunk.lower())
+    return parts
 
 
 def ensure_dirs() -> None:
@@ -84,10 +96,41 @@ def chunk_text(content: str, max_chars: int) -> List[str]:
     return blocks
 
 
-def load_model(repo_id: str) -> Tuple[AutoTokenizer, AutoModelForSeq2SeqLM]:
+def load_model(repo_id: str, device: torch.device, fp16: bool = False) -> Tuple[AutoTokenizer, AutoModelForSeq2SeqLM]:
+    """
+    Carrega tokenizer e modelo de forma compatível com GPUs com pouca VRAM:
+    - Em CUDA: usa device_map="auto" (Accelerate) e low_cpu_mem_usage=True para evitar cópias de 'meta'.
+    - Em CPU: carrega normalmente e move para CPU.
+    """
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
-    model = AutoModelForSeq2SeqLM.from_pretrained(repo_id)
-    return tokenizer, model
+    if device.type == "cuda":
+        torch_dtype = torch.float16 if fp16 else None
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            repo_id,
+            device_map="auto",
+            low_cpu_mem_usage=True,
+            torch_dtype=torch_dtype,
+        )
+        # Não chamar model.to(...) quando usamos device_map/accelerate
+        return tokenizer, model
+    else:
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            repo_id,
+            low_cpu_mem_usage=False,
+        )
+        model.to(device)
+        return tokenizer, model
+
+
+def build_contextual_prompt(text: str, context: str) -> str:
+    """Cria um prompt com instruções explícitas para usar o contexto apenas como referência."""
+    instruction = (
+        "Traduza somente o trecho delimitado em <texto>. Utilize o conteúdo em <contexto> apenas como apoio; "
+        "não traduza, repita ou reordene informações do contexto."
+    )
+    return (
+        f"{instruction}\n\n<texto>\n{text}\n</texto>\n<contexto>\n{context}\n</contexto>"
+    )
 
 
 def translate(
@@ -101,6 +144,12 @@ def translate(
     if hasattr(tokenizer, "src_lang"):
         tokenizer.src_lang = source_lang
     encoded = tokenizer(text, return_tensors="pt", truncation=True)
+    # move tensors para o device do modelo se possivel
+    try:
+        device = next(model.parameters()).device
+        encoded = {k: v.to(device) for k, v in encoded.items()}
+    except Exception:
+        pass
     generation_kwargs = {"max_new_tokens": max_new_tokens}
     if hasattr(tokenizer, "get_lang_id"):
         try:
@@ -157,9 +206,11 @@ def generate_outputs(
     source_lang: str,
     target_lang: str,
 ) -> Tuple[List[str], List[str]]:
-    # This function remains for backwards compatibility but will process all
-    # blocks in-memory. For incremental saving we call translate_block in the
-    # pipeline loop below.
+    '''
+        Essa parte processa todos os blocos em memoria e retorna as listas completas de baseline e adaptado.
+        Isso significa que todo o conteudo fica em memoria, o que pode ser um problema para documentos muito grandes, mas
+        mantem a compatibilidade com a versao anterior.
+    '''
     baseline: List[str] = []
     adapted: List[str] = []
     for block in blocks:
@@ -176,9 +227,9 @@ def generate_outputs(
         if use_glossary:
             enriched_block = annotate_with_glossary(enriched_block, glossary)
         if use_rag and encoder is not None:
-            context = build_rag_context(encoder, rag_cache, definitions, block, top_k=3)
+            context = build_rag_context(encoder, rag_cache, definitions, block, top_k=RAG_TOP_K)
             if context:
-                enriched_block = f"{enriched_block}\n\nContexto juridico:\n{context}"
+                enriched_block = build_contextual_prompt(enriched_block, context)
         adapted_translation = translate(
             enriched_block,
             tokenizer,
@@ -207,7 +258,11 @@ def translate_block(
     source_lang: str,
     target_lang: str,
 ) -> Tuple[str, str]:
-    """Translate a single block and return (baseline, adapted)."""
+    '''    
+        Essa funcao traduz um unico bloco e retorna (baseline, adaptado).
+        Ela é parecida com generate_outputs, mas processa apenas um bloco por vez e mantém o estado entre as chamadas.
+        Assim, evitamos manter tudo em memoria e podemos salvar incrementalmente.
+    '''
     baseline_translation = translate(
         block,
         tokenizer,
@@ -220,9 +275,9 @@ def translate_block(
     if use_glossary:
         enriched_block = annotate_with_glossary(enriched_block, glossary)
     if use_rag and encoder is not None:
-        context = build_rag_context(encoder, rag_cache, definitions, block, top_k=3)
+        context = build_rag_context(encoder, rag_cache, definitions, block, top_k=RAG_TOP_K)
         if context:
-            enriched_block = f"{enriched_block}\n\nContexto juridico:\n{context}"
+            enriched_block = build_contextual_prompt(enriched_block, context)
     adapted_translation = translate(
         enriched_block,
         tokenizer,
@@ -278,9 +333,21 @@ def write_results(base_name: str, lang: str, baseline: List[str], adapted: List[
     adapted_path.write_text("\n\n".join(adapted), encoding="utf-8")
 
 
-def run_pipeline(languages: List[str], max_chars: int, max_new_tokens: int, use_glossary: bool, use_rag: bool) -> None:
+def run_pipeline(
+    languages: List[str],
+    max_chars: int,
+    max_new_tokens: int,
+    use_glossary: bool,
+    use_rag: bool,
+    document_filters: Optional[List[str]] = None,
+    device: Optional[torch.device] = None,
+    fp16: bool = False,
+) -> None:
     ensure_dirs()
-    html_files = sorted(SOURCE_HTML_DIR.glob("*.html"))
+    html_files = sorted(SOURCE_HTML_DIR.glob("*.html"), key=lambda path: natural_key(path.stem))
+    if document_filters:
+        allowed = {doc.strip() for doc in document_filters if doc.strip()}
+        html_files = [path for path in html_files if path.stem in allowed]
     if not html_files:
         print("Nenhum HTML encontrado em arquivos_juridicos")
         return
@@ -304,7 +371,7 @@ def run_pipeline(languages: List[str], max_chars: int, max_new_tokens: int, use_
                 continue
             repo_id = config["repo"]
             if repo_id not in model_cache:
-                model_cache[repo_id] = load_model(repo_id)
+                model_cache[repo_id] = load_model(repo_id, device or torch.device("cpu"), fp16=fp16)
             tokenizer, model = model_cache[repo_id]
             glossary = glossaries[lang]
             # Remove any pre-existing partial files for a clean run
@@ -353,18 +420,45 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-new-tokens", type=int, default=256, help="Limite de tokens gerados por traducao.")
     parser.add_argument("--no-glossary", action="store_true", help="Desativa a anotacao de glossario.")
     parser.add_argument("--rag", action="store_true", help="Ativa busca de contexto via RAG.")
+    parser.add_argument(
+        "--documents",
+        help="Lista de nomes base (sem extensao) separados por virgula para processar somente os documentos indicados.",
+    )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Seleciona o device de execucao (auto: cuda se disponivel).",
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="Usa half precision (float16) quando em CUDA para reduzir memoria/tempo (ligeira perda numerica).",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     languages = [lang.strip() for lang in args.languages.split(",") if lang.strip()]
+    # determine device
+    if args.device == "cuda":
+        if not torch.cuda.is_available():
+            raise SystemExit("CUDA solicitado mas nao disponivel no PyTorch atual.")
+        device = torch.device("cuda")
+    elif args.device == "cpu":
+        device = torch.device("cpu")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     run_pipeline(
         languages=languages,
         max_chars=getattr(args, "max_chars"),
         max_new_tokens=getattr(args, "max_new_tokens"),
         use_glossary=not args.no_glossary,
         use_rag=args.rag,
+        document_filters=[doc.strip() for doc in args.documents.split(",")] if args.documents else None,
+        device=device,
+        fp16=bool(getattr(args, "fp16", False)),
     )
 
 

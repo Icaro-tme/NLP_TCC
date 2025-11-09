@@ -114,6 +114,7 @@ Pontos práticos de engenharia:
 ```powershell
 python -m pip install -r requirements.txt
 python scripts/pipeline.py --languages en,es --rag
+python scripts/pipeline.py --languages en,es --documents InteriorTeor30 --device cuda --no-rag
 
 # Após revisar outputs e gerar referências:
 
@@ -121,9 +122,11 @@ python scripts/evaluate_translations.py <nome_do_html_sem_extensao> en
 python scripts/evaluate_translations.py <nome_do_html_sem_extensao> es
 
 #exemplo:
+#InteriorTeor30 é o menor
+python scripts/evaluate_translations.py InteriorTeor30 en
+python scripts/evaluate_translations.py InteriorTeor30 es
 
-python scripts/evaluate_translations.py InteriorTeor0 en
-python scripts/evaluate_translations.py InteriorTeor0 es
+
 ```
 
 ### Requisitos Principais
