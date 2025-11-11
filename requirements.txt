@@ -5,3 +5,6 @@ sentence-transformers
 torch
 sacrebleu
 sentencepiece
+numpy
+google-generativeai
+accelerate

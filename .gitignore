@@ -4,3 +4,5 @@ results/html/*
 data/extracted/*
 data/html_raw/*
 arquivos_juridicos/*
+
+/.env
