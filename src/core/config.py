@@ -44,3 +44,22 @@ class PipelineConfig:
     source_lang: str = "pt"
     target_langs: List[str] = field(default_factory=lambda: ["en", "es"])
     seed: Optional[int] = 42
+    rag: "RagConfig" | None = None
+
+
+@dataclass(frozen=True)
+class RagConfig:
+    """Configuração para módulo RAG.
+
+    top_k: número de trechos recuperados para compor contexto.
+    max_context_chars: limite de caracteres concatenados enviados ao prompt para evitar estouro.
+    index_dir: diretório onde armazenamos embeddings/índice persistente.
+    model: modelo de embeddings SentenceTransformer.
+    enabled: atalho booleano; se False ignora RAG mesmo se top_k>0.
+    """
+
+    top_k: int = 3
+    max_context_chars: int = 5000
+    index_dir: Path | None = None
+    model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    enabled: bool = True

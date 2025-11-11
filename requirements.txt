@@ -8,3 +8,5 @@ sentencepiece
 numpy
 google-generativeai
 accelerate
+fastapi
+uvicorn

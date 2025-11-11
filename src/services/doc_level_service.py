@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 from ..backends.base import TranslatorBackend
 from ..backends.hf_backend import HuggingFaceBackend
 from ..backends.google_backend import GoogleLLMBackend
-from ..core.config import PipelineConfig
+from ..core.config import PipelineConfig, RagConfig
+from ..rag.retriever import Retriever
 
 
 MARKER_OPEN = "<N{idx}>"
@@ -83,10 +84,27 @@ class DocLevelTranslationService:
     def translate_document(self, nodes: List[Dict], target_lang: str) -> Dict[int, str]:
         backend = self._ensure_backend()
         linearized, idx = self.linearize(nodes)
+
+        # RAG: recuperar contexto se habilitado
+        contexto: str | None = None
+        rag_cfg: RagConfig | None = getattr(self.config, "rag", None)
+        if rag_cfg and rag_cfg.enabled and rag_cfg.top_k > 0 and self.config.paths is not None:
+            index_dir = rag_cfg.index_dir or (self.config.paths.data_dir / "rag_index")
+            retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir)
+            # Construir índice se necessário a partir de diretórios padrão
+            if not retriever.has_index():
+                source_dirs = [self.config.paths.glossario_dir, self.config.paths.corpus_dir]
+                retriever.build_index(source_dirs)
+            # Query: usar começo do documento linearizado (corta para 4000 chars para embedding)
+            query_text = linearized[:4000]
+            snippets = retriever.retrieve(query_text, top_k=rag_cfg.top_k)
+            contexto = Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+
         translated = backend.translate(
             linearized,
             source_lang=self.config.source_lang,
             target_lang=target_lang,
+            contexto=contexto,
         )
         parts = self.parse_translated(translated)
         out: Dict[int, str] = {}

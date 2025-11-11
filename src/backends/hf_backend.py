@@ -14,7 +14,7 @@ class HuggingFaceBackend(TranslatorBackend):
         self._config = config
         self._gateway = TranslationGateway(config)
 
-    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None) -> str:
+    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None, contexto: str | None = None) -> str:
         if not text.strip():
             return text
         return self._gateway.translate(text=text, source_lang=source_lang, target_lang=target_lang, max_length=max_length)
@@ -25,6 +25,7 @@ class HuggingFaceBackend(TranslatorBackend):
         source_lang: str,
         target_lang: str,
         max_length: int | None = None,
+        contexto: str | None = None,
     ) -> list[str]:
         # Simple sequential batch; could be optimized with tokenizer batching later.
-        return [self.translate(t, source_lang, target_lang, max_length=max_length) for t in texts]
+        return [self.translate(t, source_lang, target_lang, max_length=max_length, contexto=contexto) for t in texts]

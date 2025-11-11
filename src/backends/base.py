@@ -14,8 +14,17 @@ class TranslatorBackend(ABC):
     """
 
     @abstractmethod
-    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None) -> str:
-        """Translate a single text fragment."""
+    def translate(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        max_length: int | None = None,
+        contexto: str | None = None,
+    ) -> str:
+        """Traduz um fragmento de texto. Parâmetro "contexto" permite injetar
+        informações auxiliares (RAG, glossário), que alguns backends podem utilizar
+        para orientar a tradução. Backends que não suportam contexto simplesmente ignoram."""
         raise NotImplementedError
 
     def batch_translate(
@@ -24,9 +33,10 @@ class TranslatorBackend(ABC):
         source_lang: str,
         target_lang: str,
         max_length: int | None = None,
+        contexto: str | None = None,
     ) -> list[str]:
-        """Default naive batch implementation; override if backend can optimize."""
+        """Implementação padrão: traduz cada item em sequência."""
         return [
-            self.translate(t, source_lang=source_lang, target_lang=target_lang, max_length=max_length)
+            self.translate(t, source_lang=source_lang, target_lang=target_lang, max_length=max_length, contexto=contexto)
             for t in texts
         ]

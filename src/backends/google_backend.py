@@ -30,13 +30,14 @@ class GoogleLLMBackend(TranslatorBackend):
         self.model = model
         self.api_key = os.getenv("GOOGLE_API_KEY")
 
-    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None) -> str:
+    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None, contexto: str | None = None) -> str:
         if not self.api_key:
             raise RuntimeError("GOOGLE_API_KEY ausente. Defina variável de ambiente antes de usar --backend google.")
         if genai is None:
             raise RuntimeError("Biblioteca google-generativeai não instalada. Execute: pip install google-generativeai")
         genai.configure(api_key=self.api_key)
-        prompt = self._build_prompt(text, source_lang, target_lang)
+        # Construir prompt com possível contexto recuperado (RAG)
+        prompt = self._build_prompt(text, source_lang, target_lang, contexto=contexto)
         candidates = [self.model, "gemini-1.5-pro", "gemini-1.0-pro"]
         # Try direct names first; if all fail, list models dynamically and pick one supporting generateContent
         last_err: Exception | None = None
@@ -80,18 +81,22 @@ class GoogleLLMBackend(TranslatorBackend):
         source_lang: str,
         target_lang: str,
         max_length: int | None = None,
+        contexto: str | None = None,
     ) -> list[str]:
-        return [self.translate(t, source_lang, target_lang, max_length=max_length) for t in texts]
+        return [self.translate(t, source_lang, target_lang, max_length=max_length, contexto=contexto) for t in texts]
 
-    def _build_prompt(self, linearized: str, source_lang: str, target_lang: str) -> str:
+    def _build_prompt(self, linearized: str, source_lang: str, target_lang: str, contexto: str | None = None) -> str:
         lang_name = {"en": "English", "pt": "Portuguese"}.get(target_lang, target_lang)
-        return (
+        base = (
             "You are a legal-domain translation engine. Translate from Portuguese to "
             f"{lang_name} while strictly preserving segment markers <N#> and inline placeholders <ph data-id=\"...\">.\n"
             "Rules:\n"
             "1. Do NOT remove, reorder, merge, or create segment markers.\n"
             "2. Preserve <ph data-id=\"PHxxxx\"> tags unchanged except translating their textual inner content.\n"
             "3. Output ONLY the translated segments; no explanations.\n"
-            "4. Keep whitespace minimal inside markers.\n\n"
-            "Source segments:\n" + linearized + "\n\nTranslate now:" 
+            "4. Keep whitespace minimal inside markers.\n"
         )
+        ctx_block = ""
+        if contexto:
+            ctx_block = f"\nAdditional legal context (retrieved):\n{contexto}\n"
+        return base + ctx_block + "\nSource segments:\n" + linearized + "\n\nTranslate now:" 

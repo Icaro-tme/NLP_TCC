@@ -32,7 +32,7 @@ if ENV_PATH.exists():
             os.environ[key] = val
 
 
-from src.core.config import PathsConfig, PipelineConfig, TranslationConfig
+from src.core.config import PathsConfig, PipelineConfig, TranslationConfig, RagConfig
 from src.core.logging_utils import get_logger, log_time
 from src.dom_indexer import index_html
 from src.html_io import read_html, write_html
@@ -80,6 +80,17 @@ def parse_args() -> argparse.Namespace:
         default="hf",
         help="Translation backend: HuggingFace (hf) or Google Gemini (google)",
     )
+    process_parser.add_argument(
+        "--rag-topk",
+        type=int,
+        default=0,
+        help="Número de trechos a recuperar para contexto RAG (0 desativa)",
+    )
+    process_parser.add_argument(
+        "--rag-build-index",
+        action="store_true",
+        help="Força reconstrução do índice RAG antes de processar",
+    )
     process_parser.set_defaults(func=handle_process)
 
     export_parser = subparsers.add_parser("export", help="Export translated HTML variant")
@@ -100,6 +111,24 @@ def parse_args() -> argparse.Namespace:
     export_parser.add_argument("--source-lang", default="pt", help="Source language code")
     export_parser.set_defaults(func=handle_export)
 
+    export_text_parser = subparsers.add_parser("export-text", help="Export translated text (plain .txt)")
+    export_text_parser.add_argument("--doc", required=True, help="Base document name (without lang suffix)")
+    export_text_parser.add_argument("--language", required=True, help="Target language code")
+    export_text_parser.add_argument(
+        "--variant",
+        choices=["baseline", "adapted", "human"],
+        default="adapted",
+        help="Variant to export",
+    )
+    export_text_parser.add_argument("--source-lang", default="pt", help="Source language code")
+    export_text_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional explicit output path (.txt)",
+    )
+    export_text_parser.set_defaults(func=handle_export_text)
+
     return parser.parse_args()
 
 
@@ -114,6 +143,7 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
     else:
         target_langs = ["en"]
 
+    rag_index_dir = (data_dir / "rag_index")
     config = PipelineConfig(
         translation=TranslationConfig(
             device=args.device if hasattr(args, "device") else "auto",
@@ -131,6 +161,12 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
             corpus_dir=project_root / "corpus",
             results_dir=project_root / "results",
         ),
+        rag=RagConfig(
+            top_k=getattr(args, "rag_topk", 0),
+            max_context_chars=5000,
+            index_dir=rag_index_dir,
+            enabled=True,
+        ),
     )
     return config
 
@@ -147,6 +183,13 @@ def handle_ingest(args: argparse.Namespace) -> None:
 def handle_process(args: argparse.Namespace) -> None:
     config = build_pipeline_config(args)
     logger = get_logger()
+    # Opcional: reconstruir índice RAG antes de iniciar
+    if getattr(args, "rag_build_index", False) and config.rag and config.paths:
+        from src.rag.retriever import Retriever
+        index_dir = config.rag.index_dir or (config.paths.data_dir / "rag_index")
+        retriever = Retriever(model_name=config.rag.model, index_dir=index_dir)
+        retriever.build_index([config.paths.glossario_dir, config.paths.corpus_dir])
+        logger.info("RAG index rebuilt at %s", index_dir)
     ingest_result = _ingest_internal(config, Path(args.input), logger)
     db = Database(config.paths.db_path)
     node_repo = NodeRepository(db)
@@ -208,6 +251,41 @@ def handle_export(args: argparse.Namespace) -> None:
     )
     logger.info("Exporting %s variant for %s -> %s", args.variant, args.doc, args.language)
     export_service.export_variant(
+        original_html=original_html,
+        nodes=_inflate_nodes(nodes),
+        variant=args.variant,
+        output_path=output_path,
+    )
+    logger.info("Wrote %s", output_path)
+
+
+def handle_export_text(args: argparse.Namespace) -> None:
+    config = build_pipeline_config(args)
+    logger = get_logger()
+    db = Database(config.paths.db_path)
+    doc_repo = DocumentRepository(db)
+    node_repo = NodeRepository(db)
+    document_id = doc_repo.find_document_id(args.doc, args.source_lang, args.language)
+    if document_id is None:
+        raise SystemExit(
+            f"Document {args.doc} ({args.source_lang}->{args.language}) not found. Ingest/process first."
+        )
+    nodes = node_repo.list_nodes(document_id)
+    extracted_dir = config.paths.data_dir / "extracted"
+    html_path = extracted_dir / f"{args.doc}_indexed.html"
+    if not html_path.exists():
+        raise SystemExit(f"Indexed HTML not found at {html_path}. Run ingest/process again.")
+    original_html = read_html(html_path)
+    from src.services.text_export_service import TextExportService
+
+    txt_service = TextExportService()
+    output_path = args.output or (
+        config.paths.results_dir / "text" / f"{args.doc}_{args.variant}_{args.language}.txt"
+    )
+    logger.info(
+        "Exporting text %s variant for %s -> %s", args.variant, args.doc, args.language
+    )
+    txt_service.export_variant_text(
         original_html=original_html,
         nodes=_inflate_nodes(nodes),
         variant=args.variant,
