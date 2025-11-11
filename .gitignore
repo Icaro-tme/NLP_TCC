@@ -1,1 +1,6 @@
 /TCC_Icaro (2).txt
+
+results/html/*
+data/extracted/*
+data/html_raw/*
+arquivos_juridicos/*
