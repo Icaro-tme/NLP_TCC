@@ -1,5 +1,3 @@
-"""SQLite database helpers for the MVP persistence layer."""
-
 from __future__ import annotations
 
 import sqlite3

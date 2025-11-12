@@ -1,5 +1,3 @@
-"""Repository layer encapsulating raw SQL queries."""
-
 from __future__ import annotations
 
 import json

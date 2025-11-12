@@ -1,5 +1,3 @@
-"""Stub Google LLM backend for later integration (Gemini / AI Studio)."""
-
 from __future__ import annotations
 
 import os
@@ -36,10 +34,8 @@ class GoogleLLMBackend(TranslatorBackend):
         if genai is None:
             raise RuntimeError("Biblioteca google-generativeai não instalada. Execute: pip install google-generativeai")
         genai.configure(api_key=self.api_key)
-        # Construir prompt com possível contexto recuperado (RAG)
         prompt = self._build_prompt(text, source_lang, target_lang, contexto=contexto)
         candidates = [self.model, "gemini-1.5-pro", "gemini-1.0-pro"]
-        # Try direct names first; if all fail, list models dynamically and pick one supporting generateContent
         last_err: Exception | None = None
         for name in candidates:
             model = genai.GenerativeModel(name)
@@ -52,9 +48,7 @@ class GoogleLLMBackend(TranslatorBackend):
         if response is None:
             try:
                 available = list(genai.list_models())
-                # Filter models that support generateContent
                 prefers = [m for m in available if hasattr(m, "supported_generation_methods") and "generateContent" in getattr(m, "supported_generation_methods", [])]
-                # Prefer 1.5 flash/pro if present
                 ordered = sorted(prefers, key=lambda m: ("1.5" not in m.name, "flash" not in m.name, "pro" not in m.name))
                 chosen = ordered[0] if ordered else None
                 if not chosen:
@@ -67,7 +61,6 @@ class GoogleLLMBackend(TranslatorBackend):
                 ) from (last_err or e)
         if hasattr(response, "text") and response.text:
             return response.text.strip()
-        # Fallback: concatenar partes
         parts = []
         for c in getattr(response, "candidates", []):
             for ct in getattr(c, "content", []).parts:

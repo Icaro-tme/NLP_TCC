@@ -1,5 +1,3 @@
-"""Abstract translator backend interface to allow multiple translation providers."""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -7,11 +5,6 @@ from typing import Sequence
 
 
 class TranslatorBackend(ABC):
-    """Defines the minimal contract any translation provider must satisfy.
-
-    Methods operate on raw text strings; higher-level orchestration (segmentation,
-    placeholder handling) happens outside in services.
-    """
 
     @abstractmethod
     def translate(

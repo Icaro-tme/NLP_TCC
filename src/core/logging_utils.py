@@ -1,5 +1,3 @@
-"""Logging helpers providing structured and consistent output."""
-
 from __future__ import annotations
 
 import logging

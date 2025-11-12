@@ -1,5 +1,3 @@
-"""Utilities for replacing inline HTML tags with reversible placeholders."""
-
 from __future__ import annotations
 
 import re
@@ -33,8 +31,6 @@ PLACEHOLDER_CLOSE_TEMPLATE = "</ph>"
 
 @dataclass(frozen=True)
 class PlaceholderSpec:
-    """Metadata required to reconstruct an inline tag."""
-
     tag: str
     attrs: Dict[str, str]
 
@@ -49,7 +45,6 @@ class PlaceholderSpec:
 
 
 class PlaceholderEncoder:
-    """Encodes inline tags into deterministic placeholders and decodes them back."""
 
     def __init__(self) -> None:
         self._counter = 0
@@ -89,8 +84,7 @@ class PlaceholderEncoder:
             for child in list(ph.children):
                 new_tag.append(child.extract())
             ph.replace_with(new_tag)
-        # Return inner HTML if we parsed a fragment list; BeautifulSoup may wrap
-        # top-level strings; converting to str is acceptable for our use.
+
         return str(soup)
 
     def _encode_node(self, node, mapping: Dict[str, PlaceholderSpec]) -> str:

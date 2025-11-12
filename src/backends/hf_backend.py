@@ -1,5 +1,3 @@
-"""Hugging Face seq2seq backend implementing TranslatorBackend."""
-
 from __future__ import annotations
 
 from typing import Sequence
@@ -27,5 +25,4 @@ class HuggingFaceBackend(TranslatorBackend):
         max_length: int | None = None,
         contexto: str | None = None,
     ) -> list[str]:
-        # Simple sequential batch; could be optimized with tokenizer batching later.
         return [self.translate(t, source_lang, target_lang, max_length=max_length, contexto=contexto) for t in texts]
