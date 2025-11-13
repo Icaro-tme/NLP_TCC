@@ -19,7 +19,7 @@ class TranslationConfig:
     use_device_map: bool = True
     trust_remote_code: bool = False
     backend: str = "hf"  # hf | google
-    strategy: str = "node"  # node | window | doc
+    strategy: str = "node"  # node | window | doc | doc-sintatico
     short_node_merge_chars: int = 10  # threshold for doc-level merging heuristic
 
 

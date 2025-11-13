@@ -81,24 +81,24 @@ class DocLevelTranslationService:
         parts = [m.group(2) for m in pattern.finditer(translated)]
         return parts
 
+    def _build_context(self, linearized: str) -> str | None:
+        """Gera contexto RAG opcional para doc-level e variações."""
+        rag_cfg: RagConfig | None = getattr(self.config, "rag", None)
+        if not (rag_cfg and rag_cfg.enabled and rag_cfg.top_k > 0 and self.config.paths is not None):
+            return None
+        index_dir = rag_cfg.index_dir or (self.config.paths.data_dir / "rag_index")
+        retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir)
+        if not retriever.has_index():
+            source_dirs = [self.config.paths.glossario_dir, self.config.paths.corpus_dir]
+            retriever.build_index(source_dirs)
+        query_text = linearized[:4000]
+        snippets = retriever.retrieve(query_text, top_k=rag_cfg.top_k)
+        return Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+
     def translate_document(self, nodes: List[Dict], target_lang: str) -> Dict[int, str]:
         backend = self._ensure_backend()
         linearized, idx = self.linearize(nodes)
-
-        # RAG: recuperar contexto se habilitado
-        contexto: str | None = None
-        rag_cfg: RagConfig | None = getattr(self.config, "rag", None)
-        if rag_cfg and rag_cfg.enabled and rag_cfg.top_k > 0 and self.config.paths is not None:
-            index_dir = rag_cfg.index_dir or (self.config.paths.data_dir / "rag_index")
-            retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir)
-            # Construir índice se necessário a partir de diretórios padrão
-            if not retriever.has_index():
-                source_dirs = [self.config.paths.glossario_dir, self.config.paths.corpus_dir]
-                retriever.build_index(source_dirs)
-            # Query: usar começo do documento linearizado (corta para 4000 chars para embedding)
-            query_text = linearized[:4000]
-            snippets = retriever.retrieve(query_text, top_k=rag_cfg.top_k)
-            contexto = Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+        contexto = self._build_context(linearized)
 
         translated = backend.translate(
             linearized,

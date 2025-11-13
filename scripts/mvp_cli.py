@@ -7,6 +7,7 @@ Legenda / Glossário de termos usados neste script:
     - node: traduz cada nó isoladamente (rápido, porém menos contexto, qualidade inferior em geral).
     - window: agrupa nós vizinhos em janelas para dar contexto local e depois reparte a tradução pelos nós originais.
     - doc: lineariza o documento inteiro com marcadores <N#> para traduzir de uma vez, mapeando de volta por marcador.
+    - doc-sintatico: variação do doc com heurísticas sintáticas para repartir nós curtos sem perder fluidez.
 - Backends de tradução (backend):
     - hf: modelo seq2seq via Hugging Face (ex.: m2m100).
     - google: LLM (Gemini) com prompt para preservar estrutura e placeholders.
@@ -65,6 +66,7 @@ from src.persistence.repos import DocumentRepository, NodeRepository
 from src.services.export_service import ExportService
 from src.services.translation_service import TranslationService
 from src.services.doc_level_service import DocLevelTranslationService
+from src.services.doc_syntactic_service import DocSyntacticTranslationService
 from src.translate import TranslationGateway
 
 
@@ -94,9 +96,12 @@ def parse_args() -> argparse.Namespace:
     process_parser.add_argument("--fp16", action="store_true", help="Ativar fp16 quando suportado")
     process_parser.add_argument(
         "--mode",
-        choices=["node", "window", "doc"],
+        choices=["node", "window", "doc", "doc-sintatico"],
         default="node",
-        help="Estratégia: node (isolado), window (contexto local), doc (documento linearizado)",
+        help=(
+            "Estratégia: node (isolado), window (contexto local), doc (documento linearizado), "
+            "doc-sintatico (documento com repartição sintática)."
+        ),
     )
     process_parser.add_argument(
         "--backend",
@@ -224,6 +229,8 @@ def _process_doc_level(
     5) Persistência: grava tradução de cada nó no SQLite.
 
     Vantagens: maior coerência global, melhor manutenção de contexto e terminologia.
+    Nota: o modo doc-sintatico reutiliza este pipeline, mas com um serviço que reparte grupos curtos
+    usando heurísticas sintáticas para evitar perdas de texto.
     """
     id_to_translation = doc_service.translate_document(nodes, target_lang=lang)
     translated_count = 0
@@ -303,6 +310,7 @@ def handle_process(args: argparse.Namespace) -> None:
     - node: traduz nó a nó, mais simples, menos contexto.
     - window: agrupa nós em janelas (contexto local), traduz como bloco, e reparte por nó.
     - doc: lineariza o documento completo em blocos <N#>…</N#>, traduz em uma chamada e mapeia de volta.
+    - doc-sintatico: mesma linearização do doc mas com heurísticas adicionais para repartir grupos curtos respeitando limites sintáticos.
 
         Sobre RAG (Retrieval-Augmented Generation): é uma técnica para injetar conhecimento externo
         ao modelo (glossário/corpus) no momento da geração/tradução. Aqui usamos RAG no modo doc
@@ -321,10 +329,11 @@ def handle_process(args: argparse.Namespace) -> None:
     config = build_pipeline_config(args)
     logger = get_logger()
 
-    if args.backend == "google" and args.mode != "doc":
+    if args.backend == "google" and args.mode not in ("doc", "doc-sintatico"):
         aviso = (
             "Combinação backend=google e modo=%s não é recomendada: consumo elevado de tokens e prompt"
-            " otimizado apenas para modo doc. Use --mode doc ou acrescente --force para continuar mesmo assim." % args.mode
+            " otimizado apenas para modo doc/doc-sintatico. Use --mode doc, --mode doc-sintatico ou acrescente --force "
+            "para continuar mesmo assim." % args.mode
         )
         if not getattr(args, "force", False):
             raise SystemExit(aviso)
@@ -344,12 +353,19 @@ def handle_process(args: argparse.Namespace) -> None:
     # Novo serviço permite modos diferentes; parâmetro futuro via CLI.
     translation_service = TranslationService(config=config)
     translation_service.mode = args.mode
-    doc_service = DocLevelTranslationService(config=config)
+    doc_service: DocLevelTranslationService | None = None
+    doc_sint_service: DocSyntacticTranslationService | None = None
     translations_per_lang: Dict[str, int] = {}
     for lang, document_id in ingest_result["document_ids"].items():
         nodes = node_repo.list_nodes(document_id)
         if args.mode == "doc":
+            if doc_service is None:
+                doc_service = DocLevelTranslationService(config=config)
             translated_count = _process_doc_level(nodes, lang, doc_service, node_repo, logger)
+        elif args.mode == "doc-sintatico":
+            if doc_sint_service is None:
+                doc_sint_service = DocSyntacticTranslationService(config=config)
+            translated_count = _process_doc_level(nodes, lang, doc_sint_service, node_repo, logger)
         elif args.mode == "window":
             translated_count = _process_window_level(nodes, lang, translation_service, node_repo, logger)
         else:
