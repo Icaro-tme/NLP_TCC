@@ -14,7 +14,7 @@ class TranslationConfig:
     model_name: str = "facebook/m2m100_418M"
     device: str = "auto"  # "auto", "cuda", "cpu"
     fp16: bool = False
-    max_length: int = 1024
+    max_length: int = 9999999
     batch_size: int = 1
     use_device_map: bool = True
     trust_remote_code: bool = False

@@ -6,13 +6,18 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
-from bs4 import BeautifulSoup
-
 from ..backends.base import TranslatorBackend
 from ..backends.hf_backend import HuggingFaceBackend
 from ..backends.google_backend import GoogleLLMBackend
 from ..core.config import PipelineConfig, RagConfig
 from ..rag.retriever import Retriever
+from ..telemetry.bus import emit_event
+from ..telemetry.events import (
+    DocLinearizationEvent,
+    DocTranslationEvent,
+    NodeTranslationEvent,
+    RagContextEvent,
+)
 
 
 MARKER_OPEN = "<N{idx}>"
@@ -81,7 +86,25 @@ class DocLevelTranslationService:
         parts = [m.group(2) for m in pattern.finditer(translated)]
         return parts
 
-    def _build_context(self, linearized: str) -> str | None:
+    def _emit_node_event(self, node: Dict | None, translated_text: str, target_lang: str) -> None:
+        if not node:
+            return
+        try:
+            node_id = int(node["id"])
+        except (KeyError, TypeError, ValueError):
+            return
+        emit_event(
+            NodeTranslationEvent(
+                node_id=node_id,
+                node_path=node.get("node_path"),
+                original_text=node.get("original_text", ""),
+                translated_text=translated_text,
+                target_lang=target_lang,
+                mode=self.config.translation.strategy,
+            )
+        )
+
+    def _build_context(self, linearized: str, target_lang: str | None = None) -> str | None:
         """Gera contexto RAG opcional para doc-level e variações."""
         rag_cfg: RagConfig | None = getattr(self.config, "rag", None)
         if not (rag_cfg and rag_cfg.enabled and rag_cfg.top_k > 0 and self.config.paths is not None):
@@ -93,20 +116,58 @@ class DocLevelTranslationService:
             retriever.build_index(source_dirs)
         query_text = linearized[:4000]
         snippets = retriever.retrieve(query_text, top_k=rag_cfg.top_k)
-        return Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+        contexto = Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+        if contexto:
+            emit_event(RagContextEvent(context_text=contexto, target_lang=target_lang))
+        return contexto
 
-    def translate_document(self, nodes: List[Dict], target_lang: str) -> Dict[int, str]:
+    def _translate_linearized(
+        self, nodes: List[Dict], target_lang: str
+    ) -> Tuple[str, List[Tuple[str, Dict]], List[str]]:
         backend = self._ensure_backend()
         linearized, idx = self.linearize(nodes)
-        contexto = self._build_context(linearized)
-
+        mapping_payload: List[Dict[str, object]] = []
+        for marker_idx, (key, node) in enumerate(idx):
+            mapping_payload.append(
+                {
+                    "marker": marker_idx,
+                    "node_id": key,
+                    "original": node.get("original_text", ""),
+                }
+            )
+        emit_event(
+            DocLinearizationEvent(
+                linearized_text=linearized,
+                mapping=mapping_payload,
+                target_lang=target_lang,
+            )
+        )
+        contexto = self._build_context(linearized, target_lang=target_lang)
         translated = backend.translate(
             linearized,
             source_lang=self.config.source_lang,
             target_lang=target_lang,
             contexto=contexto,
         )
+        emit_event(
+            DocTranslationEvent(
+                linearized_text=linearized,
+                translated_text=translated,
+                target_lang=target_lang,
+            )
+        )
         parts = self.parse_translated(translated)
+        return linearized, idx, parts
+
+    def translate_document(self, nodes: List[Dict], target_lang: str) -> Dict[int, str]:
+        node_lookup: Dict[int, Dict] = {}
+        for original_node in nodes:
+            try:
+                node_lookup[int(original_node["id"])] = original_node
+            except (KeyError, TypeError, ValueError):
+                continue
+
+        _linearized, idx, parts = self._translate_linearized(nodes, target_lang)
         out: Dict[int, str] = {}
         for (key, node), text in zip(idx, parts):
             if "," in key:  # group, split by lines as heuristic
@@ -114,12 +175,20 @@ class DocLevelTranslationService:
                 chunks = text.splitlines()
                 if len(chunks) == len(ids):
                     for i, nid in enumerate(ids):
-                        out[nid] = chunks[i].strip()
+                        chunk = chunks[i].strip()
+                        out[nid] = chunk
+                        self._emit_node_event(node_lookup.get(nid), chunk, target_lang)
                 else:
                     # assign whole to first, empty to rest as fallback
-                    out[ids[0]] = text.strip()
+                    primary = text.strip()
+                    out[ids[0]] = primary
+                    self._emit_node_event(node_lookup.get(ids[0]), primary, target_lang)
                     for nid in ids[1:]:
                         out[nid] = ""
+                        self._emit_node_event(node_lookup.get(nid), "", target_lang)
             else:
-                out[int(key)] = text.strip()
+                clean = text.strip()
+                nid = int(key)
+                out[nid] = clean
+                self._emit_node_event(node_lookup.get(nid), clean, target_lang)
         return out

@@ -4,5 +4,8 @@ results/html/*
 data/extracted/*
 data/html_raw/*
 arquivos_juridicos/*
+**/__pycache__/
+__pycache__/
+*.py[cod]
 
 /.env

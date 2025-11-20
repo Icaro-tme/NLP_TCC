@@ -13,6 +13,8 @@ except ImportError:  # pragma: no cover
     spacy = None
 
 from .doc_level_service import DocLevelTranslationService
+from ..telemetry.bus import emit_event
+from ..telemetry.events import DocSyntacticSplitEvent
 
 
 _NLP_MODELS = {
@@ -86,26 +88,25 @@ class DocSyntacticTranslationService(DocLevelTranslationService):
         return chunks
 
     def translate_document(self, nodes: List[Dict], target_lang: str) -> Dict[int, str]:
-        backend = self._ensure_backend()
-        linearized, idx = self.linearize(nodes)
-        contexto = self._build_context(linearized)
+        node_lookup: Dict[int, Dict] = {}
+        for original_node in nodes:
+            try:
+                node_lookup[int(original_node["id"])] = original_node
+            except (KeyError, TypeError, ValueError):
+                continue
 
-        translated = backend.translate(
-            linearized,
-            source_lang=self.config.source_lang,
-            target_lang=target_lang,
-            contexto=contexto,
-        )
-        parts = self.parse_translated(translated)
+        _linearized, idx, parts = self._translate_linearized(nodes, target_lang)
 
         out: Dict[int, str] = {}
         for (key, _node_stub), text in zip(idx, parts):
             candidate = text.strip()
             if "," not in key:
                 try:
-                    out[int(key)] = candidate
+                    nid = int(key)
                 except ValueError:
                     continue
+                out[nid] = candidate
+                self._emit_node_event(node_lookup.get(nid), candidate, target_lang)
                 continue
 
             ids = [int(x) for x in key.split(",") if x.strip()]
@@ -119,11 +120,24 @@ class DocSyntacticTranslationService(DocLevelTranslationService):
                 else:
                     merged_tail = " ".join(segments[len(ids) - 1 :])
                     segments = segments[: len(ids) - 1] + [merged_tail.strip()]
+            emit_event(
+                DocSyntacticSplitEvent(
+                    node_ids=ids,
+                    raw_text=candidate,
+                    segments=segments,
+                    target_lang=target_lang,
+                )
+            )
             for nid, chunk in zip(ids, segments):
-                out[nid] = chunk.strip()
+                clean = chunk.strip()
+                out[nid] = clean
+                self._emit_node_event(node_lookup.get(nid), clean, target_lang)
 
         for node in nodes:
-            nid = int(node["id"])
+            try:
+                nid = int(node["id"])
+            except (KeyError, TypeError, ValueError):
+                continue
             out.setdefault(nid, node.get("original_text", ""))
         return out
 

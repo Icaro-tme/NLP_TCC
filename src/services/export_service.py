@@ -40,6 +40,7 @@ class ExportService:
             fragment = BeautifulSoup(decoded_html, "html.parser")
             for child in list(fragment.body.contents if fragment.body else fragment.contents):
                 element.append(child)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(str(soup), encoding="utf-8")
 
 

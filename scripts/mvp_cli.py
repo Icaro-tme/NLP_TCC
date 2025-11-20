@@ -67,6 +67,11 @@ from src.services.export_service import ExportService
 from src.services.translation_service import TranslationService
 from src.services.doc_level_service import DocLevelTranslationService
 from src.services.doc_syntactic_service import DocSyntacticTranslationService
+from src.telemetry.context import (
+    emit_language_finish,
+    emit_language_start,
+    translation_observer,
+)
 from src.translate import TranslationGateway
 
 
@@ -124,6 +129,15 @@ def parse_args() -> argparse.Namespace:
         "--force",
         action="store_true",
         help="Força combinações não recomendadas (ex.: backend google com modo diferente de doc)",
+    )
+    process_parser.add_argument(
+        "--observe",
+        action="store_true",
+        help="Ativa modo observador e imprime eventos detalhados da tradução em tempo real",
+    )
+    process_parser.add_argument(
+        "--observe-jsonl",
+        help="Salva eventos de telemetria em arquivo JSONL (um evento por linha)",
     )
     process_parser.set_defaults(func=handle_process)
 
@@ -356,21 +370,50 @@ def handle_process(args: argparse.Namespace) -> None:
     doc_service: DocLevelTranslationService | None = None
     doc_sint_service: DocSyntacticTranslationService | None = None
     translations_per_lang: Dict[str, int] = {}
-    for lang, document_id in ingest_result["document_ids"].items():
-        nodes = node_repo.list_nodes(document_id)
-        if args.mode == "doc":
-            if doc_service is None:
-                doc_service = DocLevelTranslationService(config=config)
-            translated_count = _process_doc_level(nodes, lang, doc_service, node_repo, logger)
-        elif args.mode == "doc-sintatico":
-            if doc_sint_service is None:
-                doc_sint_service = DocSyntacticTranslationService(config=config)
-            translated_count = _process_doc_level(nodes, lang, doc_sint_service, node_repo, logger)
-        elif args.mode == "window":
-            translated_count = _process_window_level(nodes, lang, translation_service, node_repo, logger)
-        else:
-            translated_count = _process_node_level(nodes, lang, translation_service, node_repo, logger)
-        translations_per_lang[lang] = translated_count
+    observe_enabled = bool(getattr(args, "observe", False) or getattr(args, "observe_jsonl", None))
+    jsonl_path = getattr(args, "observe_jsonl", None)
+    doc_name = ingest_result.get("doc_name") if isinstance(ingest_result, dict) else None
+    doc_name_value = doc_name if isinstance(doc_name, str) and doc_name else None
+    doc_label = doc_name_value or "(sem nome)"
+    with translation_observer(
+        enabled=observe_enabled,
+        config=config,
+        mode=args.mode,
+        backend=args.backend,
+        doc_name=doc_name_value,
+        target_langs=config.target_langs,
+        jsonl_path=jsonl_path,
+        console=bool(getattr(args, "observe", False)),
+    ):
+        for lang, document_id in ingest_result["document_ids"].items():
+            nodes = node_repo.list_nodes(document_id)
+            emit_language_start(
+                observe_enabled,
+                doc_name=doc_label,
+                target_lang=lang,
+                mode=args.mode,
+                backend=args.backend,
+                node_count=len(nodes),
+            )
+            if args.mode == "doc":
+                if doc_service is None:
+                    doc_service = DocLevelTranslationService(config=config)
+                translated_count = _process_doc_level(nodes, lang, doc_service, node_repo, logger)
+            elif args.mode == "doc-sintatico":
+                if doc_sint_service is None:
+                    doc_sint_service = DocSyntacticTranslationService(config=config)
+                translated_count = _process_doc_level(nodes, lang, doc_sint_service, node_repo, logger)
+            elif args.mode == "window":
+                translated_count = _process_window_level(nodes, lang, translation_service, node_repo, logger)
+            else:
+                translated_count = _process_node_level(nodes, lang, translation_service, node_repo, logger)
+            translations_per_lang[lang] = translated_count
+            emit_language_finish(
+                observe_enabled,
+                doc_name=doc_label,
+                target_lang=lang,
+                translated_nodes=translated_count,
+            )
     for lang, count in translations_per_lang.items():
         logger.info("Traduzidos %d nós para o idioma %s", count, lang)
 
