@@ -4,17 +4,19 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from ..core.config import PathsConfig, PipelineConfig, TranslationConfig
 from ..persistence.db import Database
 from ..persistence.repos import DocumentRepository, NodeRepository
+from ..persistence.rag_repos import CorpusRepository, GlossaryRepository
 from ..services.doc_level_service import DocLevelTranslationService
 from ..services.translation_service import TranslationService
 from ..services.export_service import ExportService
 from ..services.text_export_service import TextExportService
 from ..html_io import read_html
+from ..rag.utils import invalidate_rag_index
 
 
 app = FastAPI(title="NLP TCC API", version="0.1")
@@ -22,7 +24,7 @@ app = FastAPI(title="NLP TCC API", version="0.1")
 
 def build_paths() -> PathsConfig:
     project_root = Path(__file__).resolve().parents[2]
-    return PathsConfig(
+    paths = PathsConfig(
         project_root=project_root,
         data_dir=project_root / "data",
         db_path=project_root / "data" / "db" / "nlp_tcc.sqlite",
@@ -30,6 +32,7 @@ def build_paths() -> PathsConfig:
         corpus_dir=project_root / "corpus",
         results_dir=project_root / "results",
     )
+    return paths
 
 
 class ProcessRequest(BaseModel):
@@ -38,6 +41,27 @@ class ProcessRequest(BaseModel):
     source_lang: str = "pt"
     backend: str = "google"  # hf|google
     mode: str = "doc"  # node|window|doc
+
+
+class GlossaryFeedbackRequest(BaseModel):
+    source: str
+    target: str
+    source_lang: str = "pt"
+    target_lang: str = "en"
+    notes: str | None = None
+
+
+class CorpusFeedbackRequest(BaseModel):
+    text: str
+    language: str = "pt"
+    tags: list[str] | None = None
+    notes: str | None = None
+
+
+class HumanTranslationRequest(BaseModel):
+    translation: str
+    overwrite_adapted: bool = False
+    context: str | None = None
 
 
 @app.get("/health")
@@ -77,9 +101,10 @@ def process(req: ProcessRequest):
     if req.mode == "doc":
         doc_service = DocLevelTranslationService(config=cfg)
         id_to_translation = doc_service.translate_document(node_repo.list_nodes(document_id), target_lang=req.language)
+        context_used = doc_service.last_context
         for node in node_repo.list_nodes(document_id):
             txt = id_to_translation.get(node["id"]) or node.get("original_text", "")
-            node_repo.save_translation(node_id=node["id"], translation=txt)
+            node_repo.save_translation(node_id=node["id"], translation=txt, context=context_used)
     else:
         ts = TranslationService(config=cfg)
         ts.mode = req.mode
@@ -87,6 +112,56 @@ def process(req: ProcessRequest):
             txt = ts.translate_node(node, target_lang=req.language)
             node_repo.save_translation(node_id=node["id"], translation=txt)
     return {"document": doc_name, "language": req.language, "nodes": len(nodes)}
+
+
+@app.post("/feedback/glossary")
+def feedback_glossary(req: GlossaryFeedbackRequest):
+    paths = build_paths()
+    db = Database(paths.db_path)
+    gloss_repo = GlossaryRepository(db)
+    gloss_repo.add_entry(
+        term_src=req.source,
+        lang_src=req.source_lang,
+        term_tgt=req.target,
+        lang_tgt=req.target_lang,
+        notes=req.notes,
+    )
+    invalidate_rag_index(paths)
+    return {"status": "recorded"}
+
+
+@app.post("/feedback/corpus")
+def feedback_corpus(req: CorpusFeedbackRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="campo 'text' não pode estar vazio")
+    paths = build_paths()
+    db = Database(paths.db_path)
+    corpus_repo = CorpusRepository(db)
+    corpus_repo.add_snippet(
+        text=req.text,
+        language=req.language,
+        tags=req.tags or [],
+        notes=req.notes,
+    )
+    invalidate_rag_index(paths)
+    return {"status": "recorded"}
+
+
+@app.post("/nodes/{node_id}/human-translation")
+def set_human_translation(node_id: int, req: HumanTranslationRequest):
+    paths = build_paths()
+    db = Database(paths.db_path)
+    node_repo = NodeRepository(db)
+    node = node_repo.get_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="nó não encontrado")
+    node_repo.save_human_translation(
+        node_id=node_id,
+        translation=req.translation,
+        overwrite_adapted=req.overwrite_adapted,
+        context=req.context,
+    )
+    return {"node_id": node_id, "status": "updated"}
 
 
 class ExportRequest(BaseModel):

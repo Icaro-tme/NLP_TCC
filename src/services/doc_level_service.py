@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Set, Tuple
 
 from ..backends.base import TranslatorBackend
 from ..backends.hf_backend import HuggingFaceBackend
@@ -28,6 +28,7 @@ MARKER_CLOSE = "</N{idx}>"
 class DocLevelTranslationService:
     config: PipelineConfig
     backend: TranslatorBackend | None = None
+    last_context: str | None = None
 
     def _ensure_backend(self) -> TranslatorBackend:
         if self.backend:
@@ -110,16 +111,78 @@ class DocLevelTranslationService:
         if not (rag_cfg and rag_cfg.enabled and rag_cfg.top_k > 0 and self.config.paths is not None):
             return None
         index_dir = rag_cfg.index_dir or (self.config.paths.data_dir / "rag_index")
-        retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir)
+        retriever = Retriever(
+            model_name=rag_cfg.model,
+            index_dir=index_dir,
+            db_path=self.config.paths.db_path,
+        )
         if not retriever.has_index():
-            source_dirs = [self.config.paths.glossario_dir, self.config.paths.corpus_dir]
-            retriever.build_index(source_dirs)
+            retriever.build_index()
         query_text = linearized[:4000]
-        snippets = retriever.retrieve(query_text, top_k=rag_cfg.top_k)
+        snippets = retriever.retrieve(
+            query_text,
+            top_k=rag_cfg.top_k,
+            source_lang=self.config.source_lang,
+            target_lang=target_lang,
+        )
         contexto = Retriever.build_context(snippets, max_chars=rag_cfg.max_context_chars)
         if contexto:
             emit_event(RagContextEvent(context_text=contexto, target_lang=target_lang))
         return contexto
+
+    @staticmethod
+    def _extract_glossary_pairs(contexto: str | None) -> List[Tuple[str, str]]:
+        if not contexto:
+            return []
+        pairs: List[Tuple[str, str]] = []
+        seen: Set[Tuple[str, str]] = set()
+        lines = [line.strip() for line in contexto.splitlines() if line.strip()]
+        for idx, line in enumerate(lines):
+            term_match = re.match(r"^(?:Termo|Term|Palavra|Entrada)\s*[:\-]\s*(.+)$", line, re.IGNORECASE)
+            if term_match:
+                src = term_match.group(1).strip()
+                tgt = ""
+                for look_ahead in range(idx + 1, min(idx + 4, len(lines))):
+                    trans_match = re.match(r"^(?:Tradu[cç][aã]o|Translation|Equivalente|Meaning)\s*[:\-]\s*(.+)$", lines[look_ahead], re.IGNORECASE)
+                    if trans_match:
+                        tgt = trans_match.group(1).strip()
+                        break
+                if src and tgt and (src, tgt) not in seen:
+                    pairs.append((src, tgt))
+                    seen.add((src, tgt))
+                continue
+            simple_match = re.match(r"^(.+?)\s*(?:=>|->|→|—|-|=)\s*(.+)$", line)
+            if simple_match:
+                src = simple_match.group(1).strip()
+                tgt = simple_match.group(2).strip()
+                if src and tgt and (src, tgt) not in seen:
+                    pairs.append((src, tgt))
+                    seen.add((src, tgt))
+        return pairs[:20]
+
+    @staticmethod
+    def _apply_glossary_bias(text: str, pairs: List[Tuple[str, str]]) -> Tuple[str, Dict[str, str]]:
+        placeholder_map: Dict[str, str] = {}
+        biased_text = text
+        for idx, (src, tgt) in enumerate(pairs):
+            src_clean = src.strip()
+            tgt_clean = tgt.strip()
+            if not src_clean or not tgt_clean:
+                continue
+            token = f"<<RAG{idx}>>"
+            pattern = re.compile(rf"(?<!\w){re.escape(src_clean)}(?!\w)", re.IGNORECASE)
+            if not pattern.search(biased_text):
+                continue
+            biased_text = pattern.sub(token, biased_text)
+            placeholder_map[token] = tgt_clean
+        return biased_text, placeholder_map
+
+    @staticmethod
+    def _restore_glossary_terms(text: str, placeholder_map: Dict[str, str]) -> str:
+        restored = text
+        for token, tgt in placeholder_map.items():
+            restored = restored.replace(token, tgt)
+        return restored
 
     def _translate_linearized(
         self, nodes: List[Dict], target_lang: str
@@ -143,12 +206,20 @@ class DocLevelTranslationService:
             )
         )
         contexto = self._build_context(linearized, target_lang=target_lang)
+        self.last_context = contexto
+        glossary_pairs = self._extract_glossary_pairs(contexto)
+        payload_text = linearized
+        placeholder_map: Dict[str, str] = {}
+        if glossary_pairs and isinstance(backend, HuggingFaceBackend):
+            payload_text, placeholder_map = self._apply_glossary_bias(linearized, glossary_pairs)
         translated = backend.translate(
-            linearized,
+            payload_text,
             source_lang=self.config.source_lang,
             target_lang=target_lang,
             contexto=contexto,
         )
+        if placeholder_map:
+            translated = self._restore_glossary_terms(translated, placeholder_map)
         emit_event(
             DocTranslationEvent(
                 linearized_text=linearized,

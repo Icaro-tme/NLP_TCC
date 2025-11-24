@@ -1,0 +1,64 @@
+term_src|lang_src|term_tgt|lang_tgt|notes
+trecho (quando designa parte específica de um documento jurídico)|pt|excerpt (legal passage)|en|Usar quando se referir a um parágrafo citado textualmente.
+trecho (quando remete a porção territorial)|pt|section (territorial area)|en|Diferenciar de "segment"; adequado para delimitações geográficas.
+trecho (quando indica segmento de rodovia ou ferrovia)|pt|stretch (of highway)|en|Usar em textos de infraestrutura ou concessões.
+artigo (legislação portuguesa)|pt|article (statute)|en|Manter a capitalização padrão (Article 5).
+artigo (legislação espanhola)|pt|artículo (de ley)|es|Aplicar para citações de legislação espanhola.
+inciso|pt|subsection|en|Usar em citações como "artigo 5º, inciso II".
+alínea|pt|subparagraph|en|Usar letra entre parênteses.
+caput (do artigo)|pt|chapeau|en|Terminologia consagrada em traduções jurídicas ao inglês.
+parágrafo único|pt|sole paragraph|en|
+parágrafo único|pt|párrafo único|es|Versão espanhola.
+jurisprudência consolidada|pt|settled case law|en|
+jurisprudência consolidada|pt|jurisprudencia consolidada|es|Versão espanhola.
+medida cautelar|pt|interim relief|en|Preferir quando a medida antecede julgamento completo.
+medida cautelar|pt|medida cautelar|es|Terminologia padrão em espanhol.
+tutela de urgência|pt|emergency injunction|en|
+tutela de urgência|pt|medida cautelar de urgencia|es|
+tutela antecipada|pt|anticipatory injunction|en|Pode usar "preliminary injunction" em contextos norte-americanos.
+agravo de instrumento|pt|interlocutory appeal|en|
+agravo de instrumento|pt|recurso de queja|es|
+embargos de declaração|pt|motion for clarification|en|
+embargos de declaração|pt|recurso de aclaración|es|
+recurso especial|pt|special appeal (Superior Court of Justice)|en|Especificar tribunal em nota de rodapé quando possível.
+recurso extraordinário|pt|extraordinary appeal (Supreme Federal Court)|en|
+recurso extraordinário|pt|recurso extraordinario|es|
+dispositivo (de sentença)|pt|operative part|en|
+dispositivo (de sentença)|pt|parte dispositiva|es|
+fundamentação|pt|reasoning section|en|
+fundamentação|pt|fundamentación jurídica|es|
+ementa (jurisprudência)|pt|syllabus|en|Outra opção: "headnote".
+acórdão|pt|appellate decision|en|
+acórdão|pt|sentencia de apelación|es|
+voto-vista|pt|concurring opinion requested for further review|en|
+voto-vista|pt|voto de vista|es|
+voto divergente|pt|dissenting opinion|en|
+voto divergente|pt|voto disidente|es|
+sentença homologatória|pt|homologating judgment|en|
+sentença homologatória|pt|sentencia homologatoria|es|
+trânsito em julgado|pt|res judicata|en|
+trânsito em julgado|pt|cosa juzgada|es|
+carta precatória|pt|letter rogatory|en|
+carta precatória|pt|carta rogatoria|es|
+carta rogatória internacional|pt|international letter of request|en|Usar quando envolver cooperação estrangeira.
+termo de ajustamento de conduta|pt|consent decree|en|
+termo de ajustamento de conduta|pt|acuerdo de ajuste de conducta|es|
+Ministério Público|pt|Office of the Prosecutor General|en|
+Ministério Público|pt|Ministerio Público|es|Mesma nomenclatura em espanhol.
+Defensoria Pública|pt|Public Defender's Office|en|
+Defensoria Pública|pt|Defensoría Pública|es|
+litisconsórcio ativo|pt|joint plaintiffs (active joinder)|en|
+litisconsórcio ativo|pt|litisconsorcio activo|es|
+litisconsórcio passivo|pt|joint defendants (passive joinder)|en|
+litisconsórcio passivo|pt|litisconsorcio pasivo|es|
+princípio da boa-fé objetiva|pt|duty of good faith|en|
+princípio da boa-fé objetiva|pt|principio de buena fe objetiva|es|
+princípio da dignidade da pessoa humana|pt|principle of human dignity|en|
+princípio da dignidade da pessoa humana|pt|principio de dignidad de la persona humana|es|
+prequestionamento|pt|issue preservation for appeal|en|
+prequestionamento|pt|precuestionamiento|es|
+legitimidade ativa|pt|standing to sue|en|
+legitimidade ativa|pt|legitimación activa|es|
+legitimidade passiva|pt|standing to be sued|en|
+legitimidade passiva|pt|legitimación pasiva|es|
+

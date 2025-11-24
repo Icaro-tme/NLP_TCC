@@ -190,7 +190,6 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
     """
     project_root = Path(__file__).resolve().parents[1]
     data_dir = project_root / "data"
-    glossary_dir = project_root / "glossario"
     if hasattr(args, "languages"):
         target_langs = _parse_languages(args.languages)
     elif hasattr(args, "language"):
@@ -198,7 +197,15 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
     else:
         target_langs = ["en"]
 
-    rag_index_dir = (data_dir / "rag_index")
+    rag_index_dir = data_dir / "rag_index"
+    paths = PathsConfig(
+        project_root=project_root,
+        data_dir=data_dir,
+        db_path=data_dir / "db" / "nlp_tcc.sqlite",
+        glossario_dir=project_root / "glossario",
+        corpus_dir=project_root / "corpus",
+        results_dir=project_root / "results",
+    )
     config = PipelineConfig(
         translation=TranslationConfig(
             device=args.device if hasattr(args, "device") else "auto",
@@ -208,14 +215,7 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
         ),
         source_lang=args.source_lang,
         target_langs=target_langs,
-        paths=PathsConfig(
-            project_root=project_root,
-            data_dir=data_dir,
-            db_path=data_dir / "db" / "nlp_tcc.sqlite",
-            glossario_dir=glossary_dir,
-            corpus_dir=project_root / "corpus",
-            results_dir=project_root / "results",
-        ),
+        paths=paths,
         rag=RagConfig(
             top_k=getattr(args, "rag_topk", 0),
             max_context_chars=5000,
@@ -247,10 +247,11 @@ def _process_doc_level(
     usando heurísticas sintáticas para evitar perdas de texto.
     """
     id_to_translation = doc_service.translate_document(nodes, target_lang=lang)
+    context_payload = getattr(doc_service, "last_context", None)
     translated_count = 0
     for node in nodes:
         translated_text = id_to_translation.get(node["id"]) or node.get("original_text", "")
-        node_repo.save_translation(node_id=node["id"], translation=translated_text)
+        node_repo.save_translation(node_id=node["id"], translation=translated_text, context=context_payload)
         translated_count += 1
     return translated_count
 
@@ -356,8 +357,8 @@ def handle_process(args: argparse.Namespace) -> None:
     if getattr(args, "rag_build_index", False) and config.rag and config.paths:
         from src.rag.retriever import Retriever
         index_dir = config.rag.index_dir or (config.paths.data_dir / "rag_index")
-        retriever = Retriever(model_name=config.rag.model, index_dir=index_dir)
-        retriever.build_index([config.paths.glossario_dir, config.paths.corpus_dir])
+        retriever = Retriever(model_name=config.rag.model, index_dir=index_dir, db_path=config.paths.db_path)
+        retriever.build_index()
         logger.info("Índice RAG reconstruído em %s", index_dir)
     # Ingestão do HTML: cria (ou atualiza) no SQLite os registros de documento e nós.
     # Motivo: isso permite traduzir/reatribuir sem reindexar, além de exportar em fluxos distintos.

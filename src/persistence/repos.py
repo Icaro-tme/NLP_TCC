@@ -79,20 +79,60 @@ class NodeRepository:
         with self.db.cursor() as cursor:
             cursor.execute("DELETE FROM nodes WHERE document_id = ?", (document_id,))
 
-    def save_translation(self, node_id: int, translation: str) -> None:
-        """Persiste a tradução gerada em todas as colunas relevantes."""
+    def get_node(self, node_id: int) -> Optional[dict]:
+        conn = self.db.connect()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM nodes WHERE id = ?", (node_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def save_translation(self, node_id: int, translation: str, context: str | None = None) -> None:
+        """Persiste a tradução gerada e, opcionalmente, o contexto utilizado."""
         with self.db.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE nodes SET
                     baseline_text = ?,
                     adapted_text = ?,
-                    context_text = '',
+                    context_text = ?,
                     status_adapted = 'fresh'
                 WHERE id = ?
                 """,
-                (translation, translation, node_id),
+                (translation, translation, context or "", node_id),
             )
+
+    def save_human_translation(
+        self,
+        node_id: int,
+        translation: str,
+        overwrite_adapted: bool = False,
+        context: str | None = None,
+    ) -> None:
+        with self.db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nodes SET
+                    human_text = ?,
+                    status_human = 'fresh'
+                WHERE id = ?
+                """,
+                (translation, node_id),
+            )
+            if overwrite_adapted:
+                cursor.execute(
+                    """
+                    UPDATE nodes SET
+                        adapted_text = ?,
+                        status_adapted = 'fresh'
+                    WHERE id = ?
+                    """,
+                    (translation, node_id),
+                )
+            if context is not None:
+                cursor.execute(
+                    "UPDATE nodes SET context_text = ? WHERE id = ?",
+                    (context, node_id),
+                )
 
     def mark_stale_by_document(self, document_id: int) -> None:
         with self.db.cursor() as cursor:

@@ -35,6 +35,27 @@ SCHEMA_STATEMENTS = (
         FOREIGN KEY(document_id) REFERENCES documents(id)
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS glossary_entries (
+        id INTEGER PRIMARY KEY,
+        term_src TEXT NOT NULL,
+        lang_src TEXT NOT NULL,
+        term_tgt TEXT NOT NULL,
+        lang_tgt TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS corpus_snippets (
+        id INTEGER PRIMARY KEY,
+        text TEXT NOT NULL,
+        language TEXT NOT NULL,
+        tags TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """,
 )
 
 
