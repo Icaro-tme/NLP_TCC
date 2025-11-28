@@ -246,6 +246,43 @@ def _process_doc_level(
     Nota: o modo doc-sintatico reutiliza este pipeline, mas com um serviço que reparte grupos curtos
     usando heurísticas sintáticas para evitar perdas de texto.
     """
+    # Caso especial: se estivermos no backend Google e o RAG estiver ativado (top_k>0),
+    # executamos duas passagens: (1) baseline SEM RAG, (2) adapted COM RAG.
+    # Para outros cenários, preservamos o comportamento atual (uma única passagem gravando ambas colunas iguais).
+    try:
+        backend_name = getattr(doc_service.config.translation, "backend", "hf")
+        rag_cfg = getattr(doc_service.config, "rag", None)
+        rag_enabled = bool(rag_cfg and getattr(rag_cfg, "top_k", 0) > 0)
+    except Exception:
+        backend_name = "hf"
+        rag_enabled = False
+
+    if rag_enabled:
+        # 1) Baseline sem RAG - criamos novos configs imutáveis com top_k=0
+        from dataclasses import replace
+        original_config = doc_service.config
+        baseline_rag_config = replace(original_config.rag, top_k=0)
+        baseline_pipeline_config = replace(original_config, rag=baseline_rag_config)
+        doc_service.config = baseline_pipeline_config
+        id_to_baseline = doc_service.translate_document(nodes, target_lang=lang)
+
+        # 2) Adapted com RAG (restaura config original)
+        doc_service.config = original_config
+        id_to_adapted = doc_service.translate_document(nodes, target_lang=lang)
+        context_payload = getattr(doc_service, "last_context", None)
+
+        translated_count = 0
+        for node in nodes:
+            nid = node["id"]
+            baseline_text = id_to_baseline.get(nid) or node.get("original_text", "")
+            adapted_text = id_to_adapted.get(nid) or baseline_text
+            # Persistência separada para permitir comparação real baseline vs adapted
+            node_repo.save_baseline(node_id=nid, translation=baseline_text)
+            node_repo.save_adapted(node_id=nid, translation=adapted_text, context=context_payload)
+            translated_count += 1
+        return translated_count
+
+    # Caminho padrão (uma única passagem) — grava as duas colunas com o mesmo valor
     id_to_translation = doc_service.translate_document(nodes, target_lang=lang)
     context_payload = getattr(doc_service, "last_context", None)
     translated_count = 0

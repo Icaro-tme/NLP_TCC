@@ -101,6 +101,33 @@ class NodeRepository:
                 (translation, translation, context or "", node_id),
             )
 
+    def save_baseline(self, node_id: int, translation: str) -> None:
+        """Salva apenas a tradução baseline (sem RAG)."""
+        with self.db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nodes SET
+                    baseline_text = ?,
+                    status_adapted = 'pending'
+                WHERE id = ?
+                """,
+                (translation, node_id),
+            )
+
+    def save_adapted(self, node_id: int, translation: str, context: str | None = None) -> None:
+        """Salva somente a tradução adaptada (com RAG) e contexto se fornecido."""
+        with self.db.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nodes SET
+                    adapted_text = ?,
+                    context_text = ?,
+                    status_adapted = 'fresh'
+                WHERE id = ?
+                """,
+                (translation, context or "", node_id),
+            )
+
     def save_human_translation(
         self,
         node_id: int,

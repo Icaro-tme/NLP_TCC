@@ -54,6 +54,8 @@ class TranslationGateway:
         source_lang: str,
         target_lang: str,
         max_length: int | None = None,
+        forced_terms: list[str] | None = None,
+        num_beams: int | None = None,
     ) -> str:
         self.load()
         assert self.model is not None and self.tokenizer is not None
@@ -70,10 +72,27 @@ class TranslationGateway:
             forced_bos_token_id = tokenizer.get_lang_id(target_lang)
         else:
             forced_bos_token_id = tokenizer.lang_code_to_id[target_lang]
+        generate_kwargs = {
+            "forced_bos_token_id": forced_bos_token_id,
+            "max_length": max_length or self.config.max_length,
+        }
+        # Constrained decoding via force_words_ids if forced_terms provided
+        force_words_ids = []
+        if forced_terms:
+            for term in forced_terms:
+                term = term.strip()
+                if not term:
+                    continue
+                ids = tokenizer(term, add_special_tokens=False).input_ids
+                if ids:
+                    force_words_ids.append(ids)
+            if force_words_ids:
+                # Ensure enough beams for constraints to be satisfiable
+                generate_kwargs["num_beams"] = max(num_beams or 4, len(force_words_ids) + 1)
+                generate_kwargs["force_words_ids"] = force_words_ids
         generated_tokens = self.model.generate(
             **tokens,
-            forced_bos_token_id=forced_bos_token_id,
-            max_length=max_length or self.config.max_length,
+            **generate_kwargs,
         )
         decoded = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
         return decoded[0]

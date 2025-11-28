@@ -210,14 +210,37 @@ class DocLevelTranslationService:
         glossary_pairs = self._extract_glossary_pairs(contexto)
         payload_text = linearized
         placeholder_map: Dict[str, str] = {}
-        if glossary_pairs and isinstance(backend, HuggingFaceBackend):
-            payload_text, placeholder_map = self._apply_glossary_bias(linearized, glossary_pairs)
+        # Para Hugging Face agora utilizamos constrained decoding (force_words_ids) no backend,
+        # portanto não aplicamos mais a estratégia de placeholders aqui para evitar sobreconstranger.
+        # LOG detalhado de prompt/contexto para depuração de baseline vs adapted
+        if contexto:
+            try:
+                import logging
+                logger = logging.getLogger("doc_level")
+                if not logger.handlers:
+                    logging.basicConfig(level=logging.INFO)
+                logger.info(
+                    "[RAG] target=%s backend=%s top_k=%s context_chars=%d",
+                    target_lang,
+                    self.config.translation.backend,
+                    getattr(self.config.rag, 'top_k', None),
+                    len(contexto),
+                )
+                logger.info("[RAG] Context (primeiros 500 chars):\n%s", contexto[:500])
+                logger.info("[RAG] Linearized (primeiros 500 chars):\n%s", linearized[:500])
+                if glossary_pairs:
+                    logger.info("[RAG] Glossary pairs extraídos: %s", glossary_pairs[:10])
+                if placeholder_map:
+                    logger.info("[RAG] Placeholder map aplicado (HF bias): %s", placeholder_map)
+            except Exception:
+                pass
         translated = backend.translate(
             payload_text,
             source_lang=self.config.source_lang,
             target_lang=target_lang,
             contexto=contexto,
         )
+        # placeholder_map não é utilizado com HF; restauração permanece apenas para futuros backends que usem a técnica
         if placeholder_map:
             translated = self._restore_glossary_terms(translated, placeholder_map)
         emit_event(
