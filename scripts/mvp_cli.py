@@ -300,23 +300,69 @@ def _process_window_level(
     node_repo: NodeRepository,
     logger,
 ) -> int:
-    """Processa tradução em janelas de contexto local (window-level).
+    """Processa tradução em janelas (window-level) com suporte a dual-pass baseline/adapted quando RAG ativo.
 
-    Pipeline detalhado:
-    1) Agrupamento: constrói janelas com nós vizinhos para prover contexto local.
-    2) Tradução por janela: uma chamada por janela ao backend.
-    3) Divisão: reparte o texto traduzido da janela de volta por nó na mesma ordem.
-    4) Persistência: grava tradução de cada nó no SQLite.
-
-    Observação: se algum nó não receber tradução devido a falha, cai no fallback
-    traduzindo aquele nó isoladamente para não ficar sem resultado.
+    Dual-pass (quando rag.top_k > 0):
+    - Baseline: traduz cada janela SEM contexto (RAG desativado).
+    - Adapted: traduz cada janela COM contexto recuperado (glossário/corpus).
+    Persistimos por nó: save_baseline + save_adapted (com mesmo contexto para todos os nós daquela janela).
     """
-    id_to_translation = translation_service.translate_nodes_windowed(nodes, target_lang=lang)
+    rag_cfg = getattr(translation_service.config, "rag", None)
+    rag_enabled = bool(rag_cfg and getattr(rag_cfg, "top_k", 0) > 0 and translation_service.config.paths)
+    from src.segmentation import build_windows
+    windows = build_windows(nodes)
+    backend = translation_service._ensure_backend()
     translated_count = 0
-    for node in nodes:
-        translated_text = id_to_translation.get(node["id"]) or translation_service.translate_node(node, target_lang=lang)
-        node_repo.save_translation(node_id=node["id"], translation=translated_text)
-        translated_count += 1
+
+    # Cache único de retriever para todas as janelas (evita rebuild repetido).
+    retriever = None
+    if rag_enabled:
+        from src.rag.retriever import Retriever
+        index_dir = rag_cfg.index_dir or (translation_service.config.paths.data_dir / "rag_index")
+        retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir, db_path=translation_service.config.paths.db_path)
+        if not retriever.has_index():
+            retriever.build_index()
+
+    for node_group, window_text in windows:
+        # Baseline
+        baseline_translation = backend.translate(
+            text=window_text,
+            source_lang=translation_service.config.source_lang,
+            target_lang=lang,
+            contexto=None,
+        )
+        adapted_translation = baseline_translation
+        contexto_payload = None
+        if rag_enabled:
+            # Recupera contexto baseado nos primeiros N chars da janela.
+            query_text = window_text[:2000]
+            snippets = retriever.retrieve(
+                query_text,
+                top_k=rag_cfg.top_k,
+                source_lang=translation_service.config.source_lang,
+                target_lang=lang,
+            )
+            from src.rag.retriever import Retriever as _R
+            contexto_payload = _R.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+            adapted_translation = backend.translate(
+                text=window_text,
+                source_lang=translation_service.config.source_lang,
+                target_lang=lang,
+                contexto=contexto_payload,
+            )
+        # Split baseline/adapted por nó usando markers originais.
+        from src.segmentation import split_window_translation
+        baseline_splits = split_window_translation(baseline_translation)
+        adapted_splits = split_window_translation(adapted_translation)
+        baseline_lookup = {nid: txt for nid, txt in baseline_splits}
+        adapted_lookup = {nid: txt for nid, txt in adapted_splits}
+        for n in node_group:
+            nid_str = str(n["id"])
+            baseline_txt = baseline_lookup.get(nid_str, n.get("original_text", ""))
+            adapted_txt = adapted_lookup.get(nid_str, baseline_txt)
+            node_repo.save_baseline(node_id=n["id"], translation=baseline_txt)
+            node_repo.save_adapted(node_id=n["id"], translation=adapted_txt, context=contexto_payload)
+            translated_count += 1
     return translated_count
 
 
@@ -327,17 +373,52 @@ def _process_node_level(
     node_repo: NodeRepository,
     logger,
 ) -> int:
-    """Processa tradução nó-a-nó (node-level) isoladamente.
+    """Processa tradução nó-a-nó com dual-pass baseline/adapted quando RAG ativo.
 
-    Pipeline detalhado:
-    1) Para cada nó: chama o backend com apenas o texto daquele nó (sem contexto adicional).
-    2) Persistência: grava tradução de cada nó no SQLite.
+    Estratégia dual-pass:
+    - Baseline: tradução direta do nó sem contexto externo.
+    - Adapted: tradução com contexto recuperado (glossário/corpus) se rag.top_k > 0.
     """
+    rag_cfg = getattr(translation_service.config, "rag", None)
+    rag_enabled = bool(rag_cfg and getattr(rag_cfg, "top_k", 0) > 0 and translation_service.config.paths)
+    backend = translation_service._ensure_backend()
+    retriever = None
+    if rag_enabled:
+        from src.rag.retriever import Retriever
+        index_dir = rag_cfg.index_dir or (translation_service.config.paths.data_dir / "rag_index")
+        retriever = Retriever(model_name=rag_cfg.model, index_dir=index_dir, db_path=translation_service.config.paths.db_path)
+        if not retriever.has_index():
+            retriever.build_index()
     translated_count = 0
     for node in nodes:
+        original_text = node.get("original_text", "")
         with log_time(logger, f"translate node {node['node_path']} -> {lang}"):
-            translated_text = translation_service.translate_node(node, target_lang=lang)
-            node_repo.save_translation(node_id=node["id"], translation=translated_text)
+            baseline_txt = backend.translate(
+                text=original_text,
+                source_lang=translation_service.config.source_lang,
+                target_lang=lang,
+                contexto=None,
+            ) if original_text.strip() else original_text
+            adapted_txt = baseline_txt
+            contexto_payload = None
+            if rag_enabled and original_text.strip():
+                query_text = original_text[:1000]
+                snippets = retriever.retrieve(
+                    query_text,
+                    top_k=rag_cfg.top_k,
+                    source_lang=translation_service.config.source_lang,
+                    target_lang=lang,
+                )
+                from src.rag.retriever import Retriever as _R
+                contexto_payload = _R.build_context(snippets, max_chars=rag_cfg.max_context_chars)
+                adapted_txt = backend.translate(
+                    text=original_text,
+                    source_lang=translation_service.config.source_lang,
+                    target_lang=lang,
+                    contexto=contexto_payload,
+                )
+            node_repo.save_baseline(node_id=node["id"], translation=baseline_txt)
+            node_repo.save_adapted(node_id=node["id"], translation=adapted_txt, context=contexto_payload)
             translated_count += 1
     return translated_count
 
@@ -368,28 +449,28 @@ def handle_process(args: argparse.Namespace) -> None:
         ao modelo (glossário/corpus) no momento da geração/tradução. Aqui usamos RAG no modo doc
         para recuperar trechos relevantes e concatená-los como "contexto" no prompt do backend Google.
 
-        - Como é usado normalmente: você representa consulta/documento e base de conhecimento em
-            embeddings; recupera top_k trechos similares; injeta esses trechos no prompt (LLM) ou
-            ajusta o decodificador (em modelos que suportam).
-        - Neste projeto: a injeção é feita via prompt no backend Google (Gemini). O backend
-            Hugging Face (seq2seq) não implementa ainda um mecanismo para consumir esse contexto;
-            RAG aplicado a HF exigiria uma estratégia alternativa (ex.: pós-processamento guiado por
-            glossário, substituição terminológica antes/depois, ou ajuste de prefixos/forçado de termos),
-            o que não está implementado nesta versão para manter simplicidade e evitar risco de quebrar
-            a linearização/segmentação.
     """
     config = build_pipeline_config(args)
     logger = get_logger()
 
+    # Validação de restrições: Backend vs Modo
     if args.backend == "google" and args.mode not in ("doc", "doc-sintatico"):
         aviso = (
-            "Combinação backend=google e modo=%s não é recomendada: consumo elevado de tokens e prompt"
-            " otimizado apenas para modo doc/doc-sintatico. Use --mode doc, --mode doc-sintatico ou acrescente --force "
-            "para continuar mesmo assim." % args.mode
+            f"Restrição: O backend 'google' deve ser usado com --mode doc ou --mode doc-sintatico. "
+            f"(Modo atual: {args.mode})"
         )
         if not getattr(args, "force", False):
-            raise SystemExit(aviso)
-        logger.warning(aviso + " Prosseguindo porque --force foi fornecido.")
+            raise SystemExit(aviso + " Use --force para ignorar.")
+        logger.warning(aviso + " Prosseguindo (force).")
+
+    if args.backend == "hf" and args.mode in ("doc", "doc-sintatico"):
+        aviso = (
+            f"Restrição: O backend 'hf' deve ser usado com --mode node ou --mode window. "
+            f"(Modo atual: {args.mode})"
+        )
+        if not getattr(args, "force", False):
+            raise SystemExit(aviso + " Use --force para ignorar.")
+        logger.warning(aviso + " Prosseguindo (force).")
     # Opcional: reconstruir índice RAG antes de iniciar
     if getattr(args, "rag_build_index", False) and config.rag and config.paths:
         from src.rag.retriever import Retriever

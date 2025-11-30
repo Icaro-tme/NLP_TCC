@@ -21,6 +21,7 @@ class TranslationConfig:
     backend: str = "hf"  # hf | google
     strategy: str = "node"  # node | window | doc | doc-sintatico
     short_node_merge_chars: int = 10  # threshold for doc-level merging heuristic
+    require_spacy_for_chunking: bool = True
 
 
 @dataclass(frozen=True)

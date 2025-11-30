@@ -7,10 +7,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-try:
-    import spacy  # type: ignore
-except ImportError:  # pragma: no cover
-    spacy = None
+import spacy
 
 from .doc_level_service import DocLevelTranslationService
 from ..telemetry.bus import emit_event

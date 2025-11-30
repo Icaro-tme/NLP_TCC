@@ -382,7 +382,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useDocumentsStore } from 'src/stores/documents-store'
 import { useQuasar } from 'quasar'
 import HtmlViewer from 'src/components/HtmlViewer.vue'
@@ -396,7 +396,23 @@ const selecionado = ref(null)
 const backend = ref('google')
 const backends = ['google', 'hf']
 const modo = ref('doc')
-const modos = ['doc', 'window', 'node']
+
+const modos = computed(() => {
+  if (backend.value === 'google') {
+    return ['doc', 'doc-sintatico']
+  } else {
+    return ['window', 'node']
+  }
+})
+
+watch(backend, (newVal) => {
+  if (newVal === 'google') {
+    modo.value = 'doc'
+  } else {
+    modo.value = 'window'
+  }
+})
+
 const idioma = ref('en')
 const ragTopk = ref(3)
 

@@ -1,8 +1,25 @@
-"""Segmentation and windowing helpers for improved translation context."""
+"""Utilitários de segmentação e janela de contexto.
+
+Atualizações:
+- Mantido `naive_sentence_split` (pontuação .?!).
+- Adicionada segmentação opcional via spaCy (`spacy_sentence_split`) para evitar cortes de frases.
+- Função unificada `get_sentence_segments` escolhe spaCy se disponível, caso contrário fallback para ingênua.
+
+Objetivo: suportar chunking em `TranslationGateway` sem quebrar tokens ou sentido sintático em nós/janelas longas.
+"""
 
 from __future__ import annotations
 
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Tuple, Literal
+
+import spacy
+
+_SPACY_MODEL_CACHE = {}
+_SPACY_DEFAULTS = {
+    "pt": "pt_core_news_sm",
+    "en": "en_core_web_sm",
+    "es": "es_core_news_sm",
+}
 
 SENTENCE_END = {".", "?", "!"}
 
@@ -21,6 +38,63 @@ def naive_sentence_split(text: str) -> List[str]:
         if tail:
             parts.append(tail)
     return parts
+
+
+def spacy_sentence_split(text: str, lang: str = "pt") -> List[str]:
+    """Segmentação robusta via spaCy (se modelo disponível).
+
+    - Usa limites de sentença do pipeline spaCy.
+    - Filtra sentenças vazias.
+    - Fallback para lista vazia se spaCy indisponível ou erro.
+    """
+    if spacy is None:
+        return []
+    model_name = _SPACY_DEFAULTS.get(lang, _SPACY_DEFAULTS["pt"])
+    if model_name not in _SPACY_MODEL_CACHE:
+        try:
+            _SPACY_MODEL_CACHE[model_name] = spacy.load(model_name)
+        except Exception:
+            _SPACY_MODEL_CACHE[model_name] = None
+    nlp = _SPACY_MODEL_CACHE.get(model_name)
+    if nlp is None:
+        return []
+    try:
+        doc = nlp(text)
+        return [s.text.strip() for s in doc.sents if s.text.strip()]
+    except Exception:
+        return []
+
+
+def get_sentence_segments(
+    text: str,
+    *,
+    lang: str = "pt",
+    require_spacy: bool = False,
+) -> Tuple[List[str], Literal["spacy", "naive", "single"]]:
+    """Retorna sentenças e o método utilizado.
+
+    - Quando `require_spacy=True`, lança erro se spaCy não estiver disponível ou não houver sentenças extraídas.
+    - Caso contrário, tenta spaCy, depois cai para a segmentação ingênua e, por último, devolve o texto inteiro.
+    """
+    if not text.strip():
+        return [], "single"
+    if require_spacy:
+        seg = spacy_sentence_split(text, lang=lang)
+        if not seg:
+            reason = "spaCy indisponível ou modelo não carregado" if spacy is None else "modelo de linguagem sem sentenças detectadas"
+            raise RuntimeError(
+                f"Segmentação obrigatória via spaCy falhou: {reason}. "
+                f"Instale o pacote e o modelo com: python -m spacy download {_SPACY_DEFAULTS.get(lang, 'pt_core_news_sm')}"
+            )
+        return seg, "spacy"
+    # Caminho permissivo (não obrigatório)
+    seg = spacy_sentence_split(text, lang=lang)
+    if seg:
+        return seg, "spacy"
+    seg = naive_sentence_split(text)
+    if seg:
+        return seg, "naive"
+    return [text], "single"
 
 
 def build_windows(nodes: Iterable[dict], max_chars: int = 800) -> List[Tuple[List[dict], str]]:
