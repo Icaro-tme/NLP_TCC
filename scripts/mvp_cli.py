@@ -72,7 +72,6 @@ from src.telemetry.context import (
     emit_language_start,
     translation_observer,
 )
-from src.translate import TranslationGateway
 
 
 def parse_args() -> argparse.Namespace:
@@ -108,12 +107,7 @@ def parse_args() -> argparse.Namespace:
             "doc-sintatico (documento com repartição sintática)."
         ),
     )
-    process_parser.add_argument(
-        "--backend",
-        choices=["hf", "google"],
-        default="hf",
-        help="Backend: HuggingFace (hf) ou Google Gemini (google)",
-    )
+    # Backend fixo Google: opção removida para simplificar arquitetura
     process_parser.add_argument(
         "--rag-topk",
         type=int,
@@ -181,7 +175,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
-    """Monta a configuração de pipeline a partir dos argumentos da CLI.
+    """Monta a configuração de pipeline a partir dos argumentos da CLI (Google-only).
 
     Responsável por:
     - Resolver caminhos do projeto, dados, banco, glossário e corpus.
@@ -210,7 +204,7 @@ def build_pipeline_config(args: argparse.Namespace) -> PipelineConfig:
         translation=TranslationConfig(
             device=args.device if hasattr(args, "device") else "auto",
             fp16=bool(getattr(args, "fp16", False)),
-            backend=getattr(args, "backend", "hf"),
+            backend="google",
             strategy=getattr(args, "mode", "node"),
         ),
         source_lang=args.source_lang,
@@ -453,24 +447,10 @@ def handle_process(args: argparse.Namespace) -> None:
     config = build_pipeline_config(args)
     logger = get_logger()
 
-    # Validação de restrições: Backend vs Modo
-    if args.backend == "google" and args.mode not in ("doc", "doc-sintatico"):
-        aviso = (
-            f"Restrição: O backend 'google' deve ser usado com --mode doc ou --mode doc-sintatico. "
-            f"(Modo atual: {args.mode})"
+    if args.mode not in ("doc", "doc-sintatico") and not getattr(args, "force", False):
+        raise SystemExit(
+            f"Modo não recomendado para Google ({args.mode}). Use --mode doc ou --mode doc-sintatico, ou --force para prosseguir."
         )
-        if not getattr(args, "force", False):
-            raise SystemExit(aviso + " Use --force para ignorar.")
-        logger.warning(aviso + " Prosseguindo (force).")
-
-    if args.backend == "hf" and args.mode in ("doc", "doc-sintatico"):
-        aviso = (
-            f"Restrição: O backend 'hf' deve ser usado com --mode node ou --mode window. "
-            f"(Modo atual: {args.mode})"
-        )
-        if not getattr(args, "force", False):
-            raise SystemExit(aviso + " Use --force para ignorar.")
-        logger.warning(aviso + " Prosseguindo (force).")
     # Opcional: reconstruir índice RAG antes de iniciar
     if getattr(args, "rag_build_index", False) and config.rag and config.paths:
         from src.rag.retriever import Retriever
@@ -483,9 +463,6 @@ def handle_process(args: argparse.Namespace) -> None:
     ingest_result = _ingest_internal(config, Path(args.input), logger)
     db = Database(config.paths.db_path)
     node_repo = NodeRepository(db)
-    # Novo serviço permite modos diferentes; parâmetro futuro via CLI.
-    translation_service = TranslationService(config=config)
-    translation_service.mode = args.mode
     doc_service: DocLevelTranslationService | None = None
     doc_sint_service: DocSyntacticTranslationService | None = None
     translations_per_lang: Dict[str, int] = {}
@@ -498,7 +475,7 @@ def handle_process(args: argparse.Namespace) -> None:
         enabled=observe_enabled,
         config=config,
         mode=args.mode,
-        backend=args.backend,
+        backend="google",
         doc_name=doc_name_value,
         target_langs=config.target_langs,
         jsonl_path=jsonl_path,
@@ -511,7 +488,7 @@ def handle_process(args: argparse.Namespace) -> None:
                 doc_name=doc_label,
                 target_lang=lang,
                 mode=args.mode,
-                backend=args.backend,
+                backend="google",
                 node_count=len(nodes),
             )
             if args.mode == "doc":
@@ -523,9 +500,15 @@ def handle_process(args: argparse.Namespace) -> None:
                     doc_sint_service = DocSyntacticTranslationService(config=config)
                 translated_count = _process_doc_level(nodes, lang, doc_sint_service, node_repo, logger)
             elif args.mode == "window":
-                translated_count = _process_window_level(nodes, lang, translation_service, node_repo, logger)
+                # Não recomendado para Google; apenas com --force. Mantido para compatibilidade, mas usando doc-level.
+                if doc_service is None:
+                    doc_service = DocLevelTranslationService(config=config)
+                translated_count = _process_doc_level(nodes, lang, doc_service, node_repo, logger)
             else:
-                translated_count = _process_node_level(nodes, lang, translation_service, node_repo, logger)
+                # Modo node idem: cai para doc-level por simplicidade.
+                if doc_service is None:
+                    doc_service = DocLevelTranslationService(config=config)
+                translated_count = _process_doc_level(nodes, lang, doc_service, node_repo, logger)
             translations_per_lang[lang] = translated_count
             emit_language_finish(
                 observe_enabled,

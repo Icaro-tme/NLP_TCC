@@ -18,7 +18,7 @@ class TranslationConfig:
     batch_size: int = 1
     use_device_map: bool = True
     trust_remote_code: bool = False
-    backend: str = "hf"  # hf | google
+    backend: str = "google" 
     strategy: str = "node"  # node | window | doc | doc-sintatico
     short_node_merge_chars: int = 10  # threshold for doc-level merging heuristic
     require_spacy_for_chunking: bool = True

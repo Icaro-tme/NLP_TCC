@@ -1,4 +1,10 @@
-"""Orquestração enxuta para traduções diretas por nó."""
+"""Orquestração enxuta para traduções diretas por nó (Google-only).
+
+Este serviço foi simplificado para utilizar exclusivamente o backend Google Gemini.
+Ele mantém suporte aos modos "node" e "window" para efeitos de compatibilidade
+e observabilidade, mas recomenda-se priorizar o modo "doc" no serviço de nível
+de documento para melhor qualidade.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +12,8 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
 from ..core.config import PipelineConfig
-from ..translate import TranslationGateway
 from ..backends.base import TranslatorBackend
-from ..backends.hf_backend import HuggingFaceBackend
+from ..backends.google_backend import GoogleLLMBackend
 from ..segmentation import build_windows, split_window_translation
 from ..telemetry.bus import emit_event
 from ..telemetry.events import NodeTranslationEvent, WindowTranslationEvent
@@ -16,10 +21,9 @@ from ..telemetry.events import NodeTranslationEvent, WindowTranslationEvent
 
 @dataclass
 class TranslationService:
-    """Coordena somente a etapa de tradução bruta com o modelo Hugging Face."""
+    """Coordena a tradução bruta em modos nó e janela usando Google Gemini."""
 
     config: PipelineConfig
-    gateway: TranslationGateway | None = None
     backend: TranslatorBackend | None = None
     mode: str = "node"  # "node" | "window"
 
@@ -44,10 +48,7 @@ class TranslationService:
     def _ensure_backend(self) -> TranslatorBackend:
         if self.backend:
             return self.backend
-        # Default to HF backend wrapping existing gateway.
-        if self.gateway is None:
-            self.gateway = TranslationGateway(self.config.translation)
-        self.backend = HuggingFaceBackend(self.config.translation)
+        self.backend = GoogleLLMBackend()
         return self.backend
 
     def translate_node(self, node: Dict, target_lang: str) -> str:

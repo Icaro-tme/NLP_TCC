@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
 
 from .base_controller import BaseController
 from ...core.config import PipelineConfig, TranslationConfig, PathsConfig, RagConfig
@@ -29,15 +32,12 @@ class ProcessController(BaseController):
             ),
         )
         def processar(req: ProcessRequest):
-            # Validação de combinações backend x modo (espelha CLI)
-            if req.backend == "google" and req.mode not in ("doc", "doc-sintatico"):
-                raise HTTPException(status_code=400, detail="Backend 'google' deve ser usado com modos 'doc' ou 'doc-sintatico'.")
-            if req.backend == "hf" and req.mode in ("doc", "doc-sintatico") and req.mode != "doc":
-                raise HTTPException(status_code=400, detail="Backend 'hf' não suporta modo 'doc' ou 'doc-sintatico'.")
+            # Validação: apenas backend Google é suportado agora (campo de backend removido do modelo).
+            # Modos suportados: doc, doc-sintatico, node, window (todos via backend Google).
             # Configuração base (sem RAG) para baseline
             cfg_baseline = PipelineConfig(
                 translation=TranslationConfig(
-                    backend=req.backend,
+                    backend="google",
                     strategy=req.mode,
                 ),
                 paths=self.paths,
@@ -50,7 +50,7 @@ class ProcessController(BaseController):
             if req.rag_topk > 0:
                 cfg_adapt = PipelineConfig(
                     translation=TranslationConfig(
-                        backend=req.backend,
+                        backend="google",
                         strategy=req.mode,
                     ),
                     paths=self.paths,
@@ -186,5 +186,44 @@ class ProcessController(BaseController):
                 "rag_topk": req.rag_topk,
                 "adaptado": bool(cfg_adapt is not None),
                 "modo": req.mode,
-                "backend": req.backend,
+                "backend": "google",
             }
+
+        # SSE: stream de eventos de telemetria em tempo real
+        from ...telemetry.bus import event_bus
+        from ...telemetry.events import TranslationEvent
+
+        @r.get(
+            "/eventos",
+            summary="Stream de eventos (SSE)",
+            description="Conecta-se ao barramento de telemetria e envia eventos em tempo real via Server-Sent Events.",
+        )
+        async def eventos_sse():
+            queue: asyncio.Queue[str] = asyncio.Queue()
+
+            def handler(event: TranslationEvent) -> None:
+                try:
+                    payload = {k: v for k, v in event.__dict__.items() if k != "timestamp"}
+                    payload["event_type"] = event.__class__.__name__
+                    data = json.dumps(payload, ensure_ascii=False)
+                    queue.put_nowait(f"data: {data}\n\n")
+                except Exception:
+                    # Evita que erros do handler quebrem o fluxo principal
+                    pass
+
+            event_bus.register(handler)
+
+            async def event_generator():
+                try:
+                    # Mensagem inicial para confirmar conexão
+                    yield "event: open\n" + "data: conectado\n\n"
+                    while True:
+                        chunk = await queue.get()
+                        yield chunk
+                except asyncio.CancelledError:
+                    # Cliente desconectou
+                    pass
+                finally:
+                    event_bus.unregister(handler)
+
+            return StreamingResponse(event_generator(), media_type="text/event-stream")
