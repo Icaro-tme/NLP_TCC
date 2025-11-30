@@ -64,9 +64,7 @@ from src.html_io import read_html, write_html
 from src.persistence.db import Database
 from src.persistence.repos import DocumentRepository, NodeRepository
 from src.services.export_service import ExportService
-from src.services.translation_service import TranslationService
-from src.services.doc_level_service import DocLevelTranslationService
-from src.services.doc_syntactic_service import DocSyntacticTranslationService
+from src.services.translation_pipeline import ServicoTraducao
 from src.telemetry.context import (
     emit_language_finish,
     emit_language_start,
@@ -290,7 +288,7 @@ def _process_doc_level(
 def _process_window_level(
     nodes: List[dict],
     lang: str,
-    translation_service: TranslationService,
+    translation_service: ServicoTraducao,
     node_repo: NodeRepository,
     logger,
 ) -> int:
@@ -363,7 +361,7 @@ def _process_window_level(
 def _process_node_level(
     nodes: List[dict],
     lang: str,
-    translation_service: TranslationService,
+    translation_service: ServicoTraducao,
     node_repo: NodeRepository,
     logger,
 ) -> int:

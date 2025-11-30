@@ -1,10 +1,13 @@
-"""Structured translation telemetry events."""
+"""Eventos de telemetria de tradução estruturados.
+
+Documentação e nomes em português conforme diretrizes do projeto.
+"""
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, Optional
 
 from ..core.config import PipelineConfig, TranslationConfig
 
@@ -19,7 +22,6 @@ def _snapshot_translation_config(cfg: TranslationConfig) -> Dict[str, Any]:
         "batch_size": cfg.batch_size,
         "backend": cfg.backend,
         "strategy": cfg.strategy,
-        "short_node_merge_chars": cfg.short_node_merge_chars,
     }
 
 
@@ -85,6 +87,22 @@ class WindowTranslationEvent(TranslationEvent):
 
 
 @dataclass
+class NodeMappingEvent(TranslationEvent):
+    """Evento de mapeamento/persistência por nó a partir de uma tradução
+    em nível de documento ou janela. Não representa tradução por nó.
+
+    Use `source` para indicar a origem ("doc" ou "window").
+    """
+
+    node_id: int
+    original_text: str
+    translated_text: str
+    source_lang: str
+    target_lang: str
+    source: str  # "doc" ou "window"
+
+
+@dataclass
 class DocLinearizationEvent(TranslationEvent):
     linearized_text: str
     mapping: List[Dict[str, Any]]
@@ -99,6 +117,21 @@ class DocTranslationEvent(TranslationEvent):
 
 
 @dataclass
+class DocPromptEvent(TranslationEvent):
+    """Evento para logar o Prompt completo utilizado na tradução.
+
+    Preferencialmente emitido no modo documento (doc). Pode ser usado
+    em outros modos conforme necessidade.
+    """
+
+    mode: str  # "doc" | "node" | "window"
+    source_lang: str
+    target_lang: str
+    prompt: str
+    contexto: Optional[str] = None
+
+
+@dataclass
 class DocSyntacticSplitEvent(TranslationEvent):
     node_ids: Sequence[int]
     raw_text: str
@@ -110,3 +143,36 @@ class DocSyntacticSplitEvent(TranslationEvent):
 class RagContextEvent(TranslationEvent):
     context_text: str
     target_lang: str | None = None
+
+
+@dataclass
+class CorpusRetrievalEvent(TranslationEvent):
+    """Eventos detalhando os trechos recuperados do Corpus (RAG)."""
+    target_lang: str | None
+    items: List[Dict[str, Any]]  
+
+
+@dataclass
+class GlossaryMatchesEvent(TranslationEvent):
+    """Eventos relatando quais termos do glossário foram detectados no texto de origem."""
+    target_lang: str | None
+    matches: List[Dict[str, Any]] 
+
+
+# Eventos opcionais de Prompt por nó/janela
+# Para habilitar, basta emitir estes eventos no pipeline.
+@dataclass
+class NodePromptEvent(TranslationEvent):
+    node_id: int
+    source_lang: str
+    target_lang: str
+    prompt: str
+
+
+@dataclass
+class WindowPromptEvent(TranslationEvent):
+    window_index: int
+    node_ids: List[int]
+    source_lang: str
+    target_lang: str
+    prompt: str

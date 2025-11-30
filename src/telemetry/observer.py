@@ -9,11 +9,12 @@ from typing import Dict
 
 from .events import (
     DocLinearizationEvent,
-    DocSyntacticSplitEvent,
     DocTranslationEvent,
+    DocPromptEvent,
     LanguageRunFinishedEvent,
     LanguageRunStartedEvent,
     NodeTranslationEvent,
+    NodeMappingEvent,
     RagContextEvent,
     SessionFinishedEvent,
     SessionStartedEvent,
@@ -61,16 +62,21 @@ class ConsoleObserver:
                     "Nós traduzidos": event.translated_nodes,
                 },
             )
-        elif isinstance(event, NodeTranslationEvent):
+        elif isinstance(event, DocPromptEvent):
             body = {
-                "Node": event.node_id,
-                "Path": event.node_path,
-                "Alvo": event.target_lang,
                 "Modo": event.mode,
-                "Original": self._preview(event.original_text),
+                "Origem": event.source_lang,
+                "Alvo": event.target_lang,
+                "Prompt": self._preview(event.prompt),
+                "Contexto": self._preview(event.contexto or "(sem contexto)"),
+            }
+            self._print_block("Prompt de Documento", body)
+        elif isinstance(event, DocTranslationEvent):
+            body = {
+                "Alvo": event.target_lang,
                 "Tradução": self._preview(event.translated_text),
             }
-            self._print_block("Node traduzido", body)
+            self._print_block("Documento traduzido", body)
         elif isinstance(event, WindowTranslationEvent):
             body = {
                 "Nós": event.node_ids,
@@ -79,6 +85,16 @@ class ConsoleObserver:
                 "Tradução": self._preview(event.window_translation),
             }
             self._print_block("Janela processada", body)
+        elif isinstance(event, NodeMappingEvent):
+            body = {
+                "Nó": event.node_id,
+                "Origem": event.source_lang,
+                "Alvo": event.target_lang,
+                "Fonte do mapeamento": event.source,
+                "Original": self._preview(event.original_text),
+                "Traduzido": self._preview(event.translated_text),
+            }
+            self._print_block("Mapeamento de Nó", body)
         elif isinstance(event, DocLinearizationEvent):
             mapping_preview = [
                 {
