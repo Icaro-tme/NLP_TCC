@@ -6,13 +6,14 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
+from ...telemetry.bus import event_bus
+from ...telemetry.events import TranslationEvent
 
 from .base_controller import BaseController
 from ...core.config import PipelineConfig, TranslationConfig, PathsConfig, RagConfig
 from ...persistence.db import Database
 from ...persistence.repos import DocumentRepository, NodeRepository
-from ...services.doc_level_service import DocLevelTranslationService
-from ...services.translation_service import TranslationService
+from ...services.translation_pipeline import ServicoTraducao
 from ..models.process_models import ProcessRequest
 from ...services.export_service import ExportService
 
@@ -32,9 +33,7 @@ class ProcessController(BaseController):
             ),
         )
         def processar(req: ProcessRequest):
-            # Validação: apenas backend Google é suportado agora (campo de backend removido do modelo).
-            # Modos suportados: doc, doc-sintatico, node, window (todos via backend Google).
-            # Configuração base (sem RAG) para baseline
+            # Apenas backend Google é suportado; modos: doc, node, window
             cfg_baseline = PipelineConfig(
                 translation=TranslationConfig(
                     backend="google",
@@ -78,99 +77,21 @@ class ProcessController(BaseController):
             node_repo.delete_nodes_by_document(document_id)
             node_repo.insert_nodes(document_id, nodes)
             if req.mode == "doc":
-                # Passo baseline (sem RAG)
-                doc_service_base = DocLevelTranslationService(config=cfg_baseline)
-                baseline_map = doc_service_base.translate_document(node_repo.list_nodes(document_id), target_lang=req.language)
-                for node in node_repo.list_nodes(document_id):
-                    txt_base = baseline_map.get(node["id"]) or node.get("original_text", "")
-                    node_repo.save_baseline(node_id=node["id"], translation=txt_base)
-                # Passo adaptado (com RAG) se configurado
-                if cfg_adapt is not None:
-                    doc_service_adapt = DocLevelTranslationService(config=cfg_adapt)
-                    adapted_map = doc_service_adapt.translate_document(node_repo.list_nodes(document_id), target_lang=req.language)
-                    context_used = doc_service_adapt.last_context
-                    for node in node_repo.list_nodes(document_id):
-                        txt_adapt = adapted_map.get(node["id"]) or node.get("original_text", "")
-                        node_repo.save_adapted(node_id=node["id"], translation=txt_adapt, context=context_used)
-                else:
-                    # Se não há RAG, consideramos baseline também como adapted para compatibilidade
-                    for node in node_repo.list_nodes(document_id):
-                        node_repo.save_adapted(node_id=node["id"], translation=node_repo.get_node(node["id"]).get("baseline_text", ""), context="")
+                self._process_mode_doc(cfg_baseline, cfg_adapt, node_repo, document_id, req.language)
+            elif req.mode == "window":
+                self._process_mode_window(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language, req.window_size)
+            elif req.mode == "node":
+                self._process_mode_node(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language)
             else:
-                # Modos node/window com dual-pass quando RAG ativo
-                ts_base = TranslationService(config=cfg_baseline)
-                ts_base.mode = req.mode
-                ts_adapt = None
-                if cfg_adapt is not None:
-                    ts_adapt = TranslationService(config=cfg_adapt)
-                    ts_adapt.mode = req.mode
-                if req.mode == "window":
-                    # Tradução por janela
-                    from ...segmentation import build_windows, split_window_translation
-                    windows = build_windows(node_repo.list_nodes(document_id))
-                    # Baseline por janela
-                    backend_base = ts_base._ensure_backend()
-                    backend_adapt = ts_adapt._ensure_backend() if ts_adapt else None
-                    contexto_payload = None
-                    # Preparar retriever uma vez
-                    retriever = None
-                    if ts_adapt and ts_adapt.config.rag:
-                        from ...rag.retriever import Retriever
-                        index_dir = ts_adapt.config.rag.index_dir or (ts_adapt.config.paths.data_dir / "rag_index")
-                        retriever = Retriever(model_name=ts_adapt.config.rag.model, index_dir=index_dir, db_path=ts_adapt.config.paths.db_path)
-                        if not retriever.has_index():
-                            retriever.build_index()
-                    for node_group, window_text in windows:
-                        baseline_window = backend_base.translate(window_text, source_lang=req.source_lang, target_lang=req.language)
-                        adapted_window = baseline_window
-                        if ts_adapt and retriever:
-                            query_text = window_text[:2000]
-                            snippets = retriever.retrieve(query_text, top_k=ts_adapt.config.rag.top_k, source_lang=req.source_lang, target_lang=req.language)
-                            from ...rag.retriever import Retriever as _R
-                            contexto_payload = _R.build_context(snippets, max_chars=ts_adapt.config.rag.max_context_chars)
-                            adapted_window = backend_adapt.translate(window_text, source_lang=req.source_lang, target_lang=req.language, contexto=contexto_payload)
-                        base_splits = split_window_translation(baseline_window)
-                        adapt_splits = split_window_translation(adapted_window)
-                        base_lookup = {nid: txt for nid, txt in base_splits}
-                        adapt_lookup = {nid: txt for nid, txt in adapt_splits}
-                        for n in node_group:
-                            nid_str = str(n["id"])
-                            btxt = base_lookup.get(nid_str, n.get("original_text", ""))
-                            atxt = adapt_lookup.get(nid_str, btxt)
-                            node_repo.save_baseline(node_id=n["id"], translation=btxt)
-                            node_repo.save_adapted(node_id=n["id"], translation=atxt, context=contexto_payload)
-                else:
-                    # Modo node: processa nó a nó
-                    backend_base = ts_base._ensure_backend()
-                    backend_adapt = ts_adapt._ensure_backend() if ts_adapt else None
-                    retriever = None
-                    if ts_adapt and ts_adapt.config.rag:
-                        from ...rag.retriever import Retriever
-                        index_dir = ts_adapt.config.rag.index_dir or (ts_adapt.config.paths.data_dir / "rag_index")
-                        retriever = Retriever(model_name=ts_adapt.config.rag.model, index_dir=index_dir, db_path=ts_adapt.config.paths.db_path)
-                        if not retriever.has_index():
-                            retriever.build_index()
-                    for node in node_repo.list_nodes(document_id):
-                        src = node.get("original_text", "")
-                        btxt = backend_base.translate(src, source_lang=req.source_lang, target_lang=req.language) if src.strip() else src
-                        atxt = btxt
-                        contexto_payload = None
-                        if backend_adapt and retriever and src.strip():
-                            query_text = src[:1000]
-                            snippets = retriever.retrieve(query_text, top_k=ts_adapt.config.rag.top_k, source_lang=req.source_lang, target_lang=req.language)
-                            from ...rag.retriever import Retriever as _R
-                            contexto_payload = _R.build_context(snippets, max_chars=ts_adapt.config.rag.max_context_chars)
-                            atxt = backend_adapt.translate(src, source_lang=req.source_lang, target_lang=req.language, contexto=contexto_payload)
-                        node_repo.save_baseline(node_id=node["id"], translation=btxt)
-                        node_repo.save_adapted(node_id=node["id"], translation=atxt, context=contexto_payload)
-            
+                raise HTTPException(status_code=400, detail=f"Modo não suportado: {req.mode}")
+
             # Recupera nós atualizados do banco (com as traduções recém-salvas)
             final_nodes = node_repo.list_nodes(document_id)
             results_html_dir = self.paths.results_dir / "html"
             results_html_dir.mkdir(parents=True, exist_ok=True)
 
             exporter = ExportService()
-            
+
             # Exporta Baseline
             out_baseline = results_html_dir / f"{doc_name}_baseline_{req.language}.html"
             exporter.export_variant(indexed_html, final_nodes, "baseline", out_baseline)
@@ -189,9 +110,7 @@ class ProcessController(BaseController):
                 "backend": "google",
             }
 
-        # SSE: stream de eventos de telemetria em tempo real
-        from ...telemetry.bus import event_bus
-        from ...telemetry.events import TranslationEvent
+
 
         @r.get(
             "/eventos",
@@ -227,3 +146,84 @@ class ProcessController(BaseController):
                     event_bus.unregister(handler)
 
             return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+        # ------------ Helpers por modo ------------
+        def _get_retriever(cfg: PipelineConfig | None):
+            if not cfg or not cfg.rag or not cfg.rag.enabled:
+                return None
+            from ...rag.retriever import Retriever
+            index_dir = cfg.rag.index_dir or (cfg.paths.data_dir / "rag_index")
+            r = Retriever(model_name=cfg.rag.model, index_dir=index_dir, db_path=cfg.paths.db_path)
+            if not r.has_index():
+                r.build_index()
+            return r
+
+        def _build_context(retriever, text: str, cfg: PipelineConfig) -> str | None:
+            if not retriever:
+                return None
+            from ...rag.retriever import Retriever as _R
+            q = text[: max(1000, len(text))]
+            snippets = retriever.retrieve(q, top_k=cfg.rag.top_k, source_lang=cfg.source_lang, target_lang=cfg.target_langs[0])
+            return _R.build_context(snippets, max_chars=cfg.rag.max_context_chars)
+
+        def _save_baseline_and_adapted(node_repo: NodeRepository, nodes: list[dict], baseline_map: dict[int, str], adapted_map: dict[int, str] | None, context: str | None):
+            for n in nodes:
+                nid = n["id"]
+                btxt = baseline_map.get(nid) or n.get("original_text", "")
+                node_repo.save_baseline(node_id=nid, translation=btxt)
+                atxt = adapted_map.get(nid) if adapted_map else btxt
+                node_repo.save_adapted(node_id=nid, translation=atxt, context=context or "")
+
+        def _list_nodes(node_repo: NodeRepository, document_id: int) -> list[dict]:
+            return node_repo.list_nodes(document_id)
+
+        def _process_doc(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, language: str):
+            nodes_all = _list_nodes(node_repo, document_id)
+            base = ServicoTraducao(cfg_baseline).traduzir_doc(nodes_all, target_lang=language)
+            adapted = None
+            context_used = None
+            if cfg_adapt:
+                adapted = ServicoTraducao(cfg_adapt).traduzir_doc(nodes_all, target_lang=language)
+            _save_baseline_and_adapted(node_repo, nodes_all, base, adapted, context_used)
+
+        def _process_window(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str, window_size: int = 3):
+            nodes_all = _list_nodes(node_repo, document_id)
+            ts_base = ServicoTraducao(cfg_baseline)
+            ts_base.window_size = max(1, int(window_size))
+            baseline_map = ts_base.traduzir_window(nodes_all, target_lang=language)
+            adapted_map = None
+            context_used = None
+            if cfg_adapt:
+                ts_adapt = ServicoTraducao(cfg_adapt)
+                ts_adapt.window_size = ts_base.window_size
+                # Para contexto por janela, podemos usar o mesmo texto da janela ou simplificar por nó; aqui reaproveitamos janela interna do serviço
+                adapted_map = ts_adapt.traduzir_window(nodes_all, target_lang=language)
+                # Contexto agregado não é trivial por janela; mantemos None ou poderíamos computar por janela separadamente
+            _save_baseline_and_adapted(node_repo, nodes_all, baseline_map, adapted_map, context_used)
+
+        def _process_node(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str):
+            nodes_all = _list_nodes(node_repo, document_id)
+            ts_base = ServicoTraducao(cfg_baseline)
+            adapted_map = None
+            context_used = None
+            # Baseline nó a nó
+            for n in nodes_all:
+                btxt = ts_base.traduzir_node(n, target_lang=language)
+                node_repo.save_baseline(node_id=n["id"], translation=btxt)
+            if cfg_adapt:
+                ts_adapt = ServicoTraducao(cfg_adapt)
+                adapted_map = {}
+                # Com RAG, poderíamos gerar contexto por nó
+                retriever = _get_retriever(cfg_adapt)
+                for n in nodes_all:
+                    src = n.get("original_text", "")
+                    contexto = _build_context(retriever, src, cfg_adapt) if src.strip() else None
+                    atxt = ts_adapt._ensure_backend().translate(src, source_lang=source_lang, target_lang=language, contexto=contexto) if src.strip() else src
+                    adapted_map[n["id"]] = atxt
+                # Contexto global não se aplica; mantemos None
+            _save_baseline_and_adapted(node_repo, nodes_all, {n["id"]: node_repo.get_node(n["id"]).get("baseline_text", "") for n in nodes_all}, adapted_map, context_used)
+
+        # Bind helpers to instance for readability
+        self._process_mode_doc = _process_doc
+        self._process_mode_window = _process_window
+        self._process_mode_node = _process_node

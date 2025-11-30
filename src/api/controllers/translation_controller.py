@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 
 from ..controllers.base_controller import BaseController
 from ...core.config import PipelineConfig, TranslationConfig, PathsConfig, RagConfig
-from ...services.doc_level_service import DocLevelTranslationService
+from ...services.translation_pipeline import ServicoTraducao
 from ..models.translation_models import QuickTranslateRequest
 
 class TranslationController(BaseController):
@@ -133,8 +133,8 @@ class TranslationController(BaseController):
                 target_langs=[payload.target_lang],
                 rag=None,
             )
-            svc_base = DocLevelTranslationService(cfg_base)
-            trans_base = svc_base.translate_document(nodes, target_lang=payload.target_lang)
+            svc_base = ServicoTraducao(cfg_base)
+            trans_base = svc_base.traduzir_doc(nodes, target_lang=payload.target_lang)
 
             rag_cfg = None
             if payload.rag_topk > 0:
@@ -146,8 +146,8 @@ class TranslationController(BaseController):
                 target_langs=[payload.target_lang],
                 rag=rag_cfg,
             )
-            svc_adapt = DocLevelTranslationService(cfg_adapt)
-            trans_adapt = svc_adapt.translate_document(nodes, target_lang=payload.target_lang)
+            svc_adapt = ServicoTraducao(cfg_adapt)
+            trans_adapt = svc_adapt.traduzir_doc(nodes, target_lang=payload.target_lang)
 
             trans_id = uuid.uuid4().hex[:12]
             base_path = self.results_dir / f"translation_{trans_id}_baseline.html"

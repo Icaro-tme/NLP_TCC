@@ -63,7 +63,6 @@ export const useDocumentsStore = defineStore('documents', {
           input: payload.input,
           language: payload.language || 'en',
           source_lang: payload.source_lang || 'pt',
-          backend: payload.backend || 'google',
           mode: payload.mode || 'doc',
           rag_topk: payload.rag_topk ?? 0,
         }
@@ -111,6 +110,26 @@ export const useDocumentsStore = defineStore('documents', {
         throw err
       }
     },
+
+    async avaliarTraducao(payload) {
+      // payload: { documento, source_lang, idioma, variante, file }
+      if (!payload?.file) {
+        throw new Error('Arquivo humano é obrigatório')
+      }
+      const form = new FormData()
+      form.append('documento', payload.documento)
+      form.append('source_lang', payload.source_lang || 'pt')
+      form.append('idioma', payload.idioma || 'en')
+      form.append('variante', payload.variante || 'adapted')
+      form.append('arquivo', payload.file)
+      try {
+        const { data } = await api.post('/avaliar', form)
+        return data
+      } catch (err) {
+        this.erro = normalizeError(err)
+        throw err
+      }
+    }
   },
 })
 

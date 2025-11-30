@@ -3,18 +3,13 @@ from __future__ import annotations
 import os
 from typing import Sequence
 
-try:
-    import google.generativeai as genai  # type: ignore
-except ImportError:  # pragma: no cover
-    genai = None
-
-from .base import TranslatorBackend
+import google.generativeai as genai  
 
 
 DEFAULT_MODEL = "gemini-1.5-flash"  # default; will fallback if unavailable
 
 
-class GoogleLLMBackend(TranslatorBackend):
+class GoogleLLMBackend:
     """Minimal placeholder; raises if no API key provided.
 
     Expected env var: GOOGLE_API_KEY
@@ -34,7 +29,8 @@ class GoogleLLMBackend(TranslatorBackend):
         if genai is None:
             raise RuntimeError("Biblioteca google-generativeai não instalada. Execute: pip install google-generativeai")
         genai.configure(api_key=self.api_key)
-        prompt = self._build_prompt(text, source_lang, target_lang, contexto=contexto)
+        # 'text' já deve ser um prompt completo construído pelo pipeline
+        prompt = text
         # Prints úteis para auditoria: mostra modelo e trecho inicial do prompt
         print(f"[GOOGLE] modelo={self.model}")
         try:
@@ -75,28 +71,3 @@ class GoogleLLMBackend(TranslatorBackend):
                     parts.append(ct.text)
         return "\n".join(parts).strip() or text
 
-    def batch_translate(
-        self,
-        texts: Sequence[str],
-        source_lang: str,
-        target_lang: str,
-        max_length: int | None = None,
-        contexto: str | None = None,
-    ) -> list[str]:
-        return [self.translate(t, source_lang, target_lang, max_length=max_length, contexto=contexto) for t in texts]
-
-    def _build_prompt(self, linearized: str, source_lang: str, target_lang: str, contexto: str | None = None) -> str:
-        lang_name = {"en": "English", "pt": "Portuguese"}.get(target_lang, target_lang)
-        base = (
-            "You are a legal-domain translation engine. Translate from Portuguese to "
-            f"{lang_name} while strictly preserving segment markers <N#> and inline placeholders <ph data-id=\"...\">.\n"
-            "Rules:\n"
-            "1. Do NOT remove, reorder, merge, or create segment markers.\n"
-            "2. Preserve <ph data-id=\"PHxxxx\"> tags unchanged except translating their textual inner content.\n"
-            "3. Output ONLY the translated segments; no explanations.\n"
-            "4. Keep whitespace minimal inside markers.\n"
-        )
-        ctx_block = ""
-        if contexto:
-            ctx_block = f"\nAdditional legal context (retrieved):\n{contexto}\n"
-        return base + ctx_block + "\nSource segments:\n" + linearized + "\n\nTranslate now:" 

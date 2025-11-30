@@ -25,7 +25,7 @@ class RagDocument:
 class RagIndex:
     model_name: str
     documents: List[RagDocument]
-    embeddings: np.ndarray  # shape (N, D)
+    embeddings: np.ndarray 
 
 
 class Retriever:
