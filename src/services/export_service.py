@@ -1,4 +1,19 @@
-"""Service for exporting translated nodes back into HTML documents."""
+"""Serviço de exportação de variantes de tradução para HTML.
+
+Responsabilidade:
+Reconstrói um HTML a partir dos nós persistidos, inserindo o texto traduzido
+correspondente à variante solicitada ("baseline" ou "adapted").
+
+Regra especial solicitada:
+Ao exportar a variante "adapted" caso exista `human_text` preenchido para o nó,
+esse texto humano tem prioridade sobre o texto adaptado gerado pelo modelo.
+Isso permite que correções manuais sejam refletidas diretamente na variante
+adaptada sem alterar a baseline.
+
+Observação:
+Placeholders internos são decodificados para restaurar marcas/trechos inline
+que foram protegidos durante o processo de tradução.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +26,10 @@ from ..core.placeholders import PlaceholderEncoder
 
 
 class ExportService:
-    """Reconstructs HTML variants from persisted node translations."""
+    """Reconstrói variantes HTML a partir dos nós persistidos.
+
+    Para a variante "adapted" prioriza `human_text` quando disponível.
+    """
 
     def __init__(self) -> None:
         self.placeholder_encoder = PlaceholderEncoder()
@@ -31,7 +49,20 @@ class ExportService:
             node = node_lookup.get(node_path)
             if not node:
                 continue
-            text_value = node.get(f"{variant}_text") or node.get("original_text", "")
+            # Prioridade: se variante == adapted e há human_text, usar humano.
+            if variant == "adapted":
+                text_value = (
+                    node.get("human_text")
+                    or node.get("adapted_text")
+                    or node.get("baseline_text")
+                    or node.get("original_text", "")
+                )
+            else:
+                text_value = (
+                    node.get(f"{variant}_text")
+                    or node.get("baseline_text")
+                    or node.get("original_text", "")
+                )
             element.clear()
             decoded_html = self.placeholder_encoder.decode_fragment(
                 text_value, _deserialize_mapping(node.get("placeholders", {}))

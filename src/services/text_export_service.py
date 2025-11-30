@@ -1,4 +1,12 @@
-"""Plain-text export service for node translations, preserving logical order."""
+"""Serviço de exportação em texto plano das traduções dos nós.
+
+Preserva a ordem lógica dos nós do documento e decodifica placeholders para
+recuperar marcas inline.
+
+Regra especial: para variante "adapted" prioriza `human_text` quando existir,
+permitindo que correções humanas sejam refletidas na saída adaptada sem
+alterar a baseline.
+"""
 
 from __future__ import annotations
 
@@ -24,7 +32,19 @@ class TextExportService:
     ) -> None:
         parts: list[str] = []
         for node in nodes:
-            text_value = node.get(f"{variant}_text") or node.get("original_text", "")
+            if variant == "adapted":
+                text_value = (
+                    node.get("human_text")
+                    or node.get("adapted_text")
+                    or node.get("baseline_text")
+                    or node.get("original_text", "")
+                )
+            else:
+                text_value = (
+                    node.get(f"{variant}_text")
+                    or node.get("baseline_text")
+                    or node.get("original_text", "")
+                )
             decoded_html = self.placeholder_encoder.decode_fragment(
                 text_value, _deserialize_mapping(node.get("placeholders", {}))
             )

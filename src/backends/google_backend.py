@@ -30,11 +30,18 @@ class GoogleLLMBackend(TranslatorBackend):
 
     def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None, contexto: str | None = None) -> str:
         if not self.api_key:
-            raise RuntimeError("GOOGLE_API_KEY ausente. Defina variável de ambiente antes de usar --backend google.")
+            raise RuntimeError("GOOGLE_API_KEY ausente. Defina a variável de ambiente antes de usar o backend Google.")
         if genai is None:
             raise RuntimeError("Biblioteca google-generativeai não instalada. Execute: pip install google-generativeai")
         genai.configure(api_key=self.api_key)
         prompt = self._build_prompt(text, source_lang, target_lang, contexto=contexto)
+        # Prints úteis para auditoria: mostra modelo e trecho inicial do prompt
+        print(f"[GOOGLE] modelo={self.model}")
+        try:
+            preview = prompt
+            print("[GOOGLE] Prompt (primeiros 800 chars):\n" + preview)
+        except Exception:
+            pass
         candidates = [self.model, "gemini-1.5-pro", "gemini-1.0-pro"]
         last_err: Exception | None = None
         for name in candidates:

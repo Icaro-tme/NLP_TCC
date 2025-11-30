@@ -1,4 +1,4 @@
-"""Document-level translation: linearize all nodes with <N#> markers and translate once."""
+"""Tradução em nível de documento: lineariza nós com marcadores <N#> e traduz de uma vez (Google-only)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Set, Tuple
 
 from ..backends.base import TranslatorBackend
-from ..backends.hf_backend import HuggingFaceBackend
 from ..backends.google_backend import GoogleLLMBackend
 from ..core.config import PipelineConfig, RagConfig
 from ..rag.retriever import Retriever
@@ -33,10 +32,7 @@ class DocLevelTranslationService:
     def _ensure_backend(self) -> TranslatorBackend:
         if self.backend:
             return self.backend
-        if self.config.translation.backend == "google":
-            self.backend = GoogleLLMBackend()
-        else:
-            self.backend = HuggingFaceBackend(self.config.translation)
+        self.backend = GoogleLLMBackend()
         return self.backend
 
     def _maybe_merge_short_nodes(self, nodes: List[Dict]) -> List[Dict]:
@@ -210,9 +206,7 @@ class DocLevelTranslationService:
         glossary_pairs = self._extract_glossary_pairs(contexto)
         payload_text = linearized
         placeholder_map: Dict[str, str] = {}
-        # Para Hugging Face agora utilizamos constrained decoding (force_words_ids) no backend,
-        # portanto não aplicamos mais a estratégia de placeholders aqui para evitar sobreconstranger.
-        # LOG detalhado de prompt/contexto para depuração de baseline vs adapted
+        # LOG detalhado de contexto para depuração de baseline vs adapted (Google)
         if contexto:
             try:
                 import logging
@@ -230,8 +224,6 @@ class DocLevelTranslationService:
                 logger.info("[RAG] Linearized (primeiros 500 chars):\n%s", linearized[:500])
                 if glossary_pairs:
                     logger.info("[RAG] Glossary pairs extraídos: %s", glossary_pairs[:10])
-                if placeholder_map:
-                    logger.info("[RAG] Placeholder map aplicado (HF bias): %s", placeholder_map)
             except Exception:
                 pass
         translated = backend.translate(
@@ -240,9 +232,7 @@ class DocLevelTranslationService:
             target_lang=target_lang,
             contexto=contexto,
         )
-        # placeholder_map não é utilizado com HF; restauração permanece apenas para futuros backends que usem a técnica
-        if placeholder_map:
-            translated = self._restore_glossary_terms(translated, placeholder_map)
+        # placeholder_map reservado para usos futuros; atualmente não aplicamos substituições
         emit_event(
             DocTranslationEvent(
                 linearized_text=linearized,

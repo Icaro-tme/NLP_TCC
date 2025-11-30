@@ -166,17 +166,14 @@
               expand-separator
               icon="settings"
               label="Processar tradução"
-              caption="Escolha backend, modo e parâmetros de RAG"
+              caption="Escolha modo e parâmetros de RAG"
               default-opened
             >
               <q-card>
                 <q-card-section>
                   <q-form @submit.prevent="handleProcess">
                     <div class="row q-col-gutter-sm">
-                      <div class="col-6">
-                        <q-select v-model="backend" :options="backends" label="Backend" dense />
-                      </div>
-                      <div class="col-6">
+                      <div class="col-12">
                         <q-select v-model="modo" :options="modos" label="Modo" dense />
                       </div>
                       <div class="col-6">
@@ -240,6 +237,79 @@
                     </template>
                   </q-table>
                   <div v-else class="q-pa-md text-caption text-grey text-center">Nenhuma variante encontrada.</div>
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Seção 4: Avaliação de Tradução Humana -->
+            <q-expansion-item
+              expand-separator
+              icon="rule"
+              label="Avaliação de Tradução Humana"
+              caption="Comparar variante baseline/adapted com HTML humano"
+            >
+              <q-card>
+                <q-card-section>
+                  <div class="row q-col-gutter-sm">
+                    <div class="col-6">
+                      <q-file v-model="arquivoHumano" label="HTML Humano" dense filled accept=".html,text/html" />
+                    </div>
+                    <div class="col-3">
+                      <q-select v-model="varianteComparar" :options="['baseline','adapted']" label="Variante" dense />
+                    </div>
+                    <div class="col-3 flex items-end">
+                      <q-btn :loading="avaliando" color="primary" label="Avaliar" @click="handleAvaliar" class="full-width" />
+                    </div>
+                  </div>
+                </q-card-section>
+                <q-separator />
+                <!-- Removido modo nó-a-nó: avaliação apenas por documento -->
+                <q-card-section v-if="resultadoAvaliacao">
+                  <div class="text-subtitle2 q-mb-sm">Resumo (Documento)</div>
+                  <q-list dense bordered class="rounded-borders q-mb-md">
+                    <q-item v-for="r in [
+                      {k:'BLEU',v:resultadoAvaliacao.bleu},
+                      {k:'chrF',v:resultadoAvaliacao.chrf},
+                      {k:'TER',v:resultadoAvaliacao.ter},
+                      {k:'Jaccard',v:resultadoAvaliacao.jaccard_medio},
+                      {k:'POS Acc',v:resultadoAvaliacao.pos_accuracy_media}
+                    ]" :key="r.k">
+                      <q-item-section>{{ r.k }}</q-item-section>
+                      <q-item-section side>
+                        <q-badge :color="metricColor(r.k, r.v)">{{ r.v !== null ? r.v.toFixed(3) : '—' }}</q-badge>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+                  <div class="row q-col-gutter-sm">
+                    <div class="col-6">
+                      <div class="text-caption text-grey-8 q-mb-xs">Humano</div>
+                      <div class="doc-pane bg-grey-1 q-pa-sm" v-html="renderDiff(resultadoAvaliacao.texto_humano, resultadoAvaliacao.texto_sistema, 'human')"></div>
+                    </div>
+                    <div class="col-6">
+                      <div class="text-caption text-grey-8 q-mb-xs">Sistema ({{ varianteComparar }})</div>
+                      <div class="doc-pane bg-grey-1 q-pa-sm" v-html="renderDiff(resultadoAvaliacao.texto_sistema, resultadoAvaliacao.texto_humano, 'system')"></div>
+                    </div>
+                  </div>
+                  <div class="text-caption text-grey-8 q-mt-sm">Sintaxe habilitada: {{ resultadoAvaliacao.sintaxe_habilitada ? 'sim' : 'não (modelo spaCy ausente)' }}</div>
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+
+            <!-- Seção 5: Logs em Tempo Real -->
+            <q-expansion-item
+              expand-separator
+              icon="stream"
+              label="Logs em Tempo Real"
+              caption="Eventos SSE do pipeline"
+            >
+              <q-card>
+                <q-card-section class="scroll" style="max-height:300px">
+                  <div v-for="ev in eventos" :key="ev.ts" class="q-pb-xs">
+                    <div class="text-caption"><strong>{{ ev.tipo }}</strong> - {{ new Date(ev.ts).toLocaleTimeString() }}</div>
+                    <div class="text-grey-8 ellipsis">{{ JSON.stringify(ev.dado).slice(0,160) }}</div>
+                    <q-separator spaced />
+                  </div>
+                  <div v-if="!eventos.length" class="text-caption text-grey">Aguardando eventos...</div>
                 </q-card-section>
               </q-card>
             </q-expansion-item>
@@ -393,25 +463,9 @@ const splitterModel = ref(40)
 
 const arquivo = ref(null)
 const selecionado = ref(null)
-const backend = ref('google')
-const backends = ['google', 'hf']
+// Backend removido (Google-only)
 const modo = ref('doc')
-
-const modos = computed(() => {
-  if (backend.value === 'google') {
-    return ['doc', 'doc-sintatico']
-  } else {
-    return ['window', 'node']
-  }
-})
-
-watch(backend, (newVal) => {
-  if (newVal === 'google') {
-    modo.value = 'doc'
-  } else {
-    modo.value = 'window'
-  }
-})
+const modos = ['doc', 'doc-sintatico', 'node', 'window']
 
 const idioma = ref('en')
 const ragTopk = ref(3)
@@ -480,14 +534,13 @@ async function handleProcess() {
     await documentsStore.processarDocumento({
       input: `arquivos_juridicos/${selecionado.value}`,
       language: idioma.value,
-      backend: backend.value,
       mode: modo.value,
       rag_topk: ragTopk.value,
     })
     await carregarVariantes()
     $q.notify({ type: 'positive', message: 'Processamento concluído!' })
   } catch (e) {
-    $q.notify({ type: 'negative', message: 'Erro ao processar: ' + e.message })
+    $q.notify({ type: 'negative', message: 'Erro ao processar: ' + (e.message || e) })
   } finally {
     processando.value = false
   }
@@ -537,16 +590,156 @@ async function handleContextSubmit() {
       corpusForm.value.notes = ''
     }
   } catch (e) {
-    $q.notify({ type: 'negative', message: 'Erro ao adicionar contexto: ' + e.message })
+    $q.notify({ type: 'negative', message: 'Erro ao adicionar contexto: ' + (e.message || e) })
   } finally {
     submittingContext.value = false
   }
 }
 
 onMounted(async () => {
+  iniciarSSE()
   await carregarDocumentos()
   if (selecionado.value) {
     await carregarVariantes()
   }
 })
+
+// Fallback de notificação quando Quasar Notify não está habilitado
+function notify(opts) {
+  if ($q && typeof $q.notify === 'function') {
+    $q.notify(opts)
+  } else {
+    const msg = (opts && opts.message) ? opts.message : String(opts)
+    alert(msg)
+  }
+}
+
+const arquivoHumano = ref(null)
+const varianteComparar = ref('adapted')
+// Avaliação apenas por documento inteiro
+const avaliando = ref(false)
+const resultadoAvaliacao = ref(null)
+
+async function handleAvaliar() {
+  if (!selecionado.value || !arquivoHumano.value) {
+    $q.notify({ type: 'warning', message: 'Selecione documento e arquivo humano.' })
+    return
+  }
+  avaliando.value = true
+  try {
+    const data = await documentsStore.avaliarTraducao({
+      documento: selecionado.value.replace(/\.html$/,'').replace(/InteriorTeor/,'InteriorTeor'),
+      source_lang: 'pt',
+      idioma: idioma.value,
+      variante: varianteComparar.value,
+      file: arquivoHumano.value,
+    })
+    resultadoAvaliacao.value = data
+    $q.notify({ type: 'positive', message: 'Avaliação concluída!' })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Erro na avaliação: ' + (e.message || e) })
+  } finally {
+    avaliando.value = false
+  }
+}
+
+function metricColor(name, value) {
+  if (value == null) return 'grey-6'
+  // thresholds simples
+  if (name === 'BLEU') {
+    if (value < 20) return 'red-6'
+    if (value < 40) return 'orange-6'
+    return 'green-6'
+  }
+  if (name === 'chrF') {
+    if (value < 40) return 'red-6'
+    if (value < 60) return 'orange-6'
+    return 'green-6'
+  }
+  if (name === 'TER') {
+    if (value > 70) return 'red-6'
+    if (value > 50) return 'orange-6'
+    return 'green-6'
+  }
+  if (name === 'Jaccard' || name === 'Jaccard Médio') {
+    if (value < 0.3) return 'red-6'
+    if (value < 0.6) return 'orange-6'
+    return 'green-6'
+  }
+  if (name === 'POS Acc' || name === 'POS Acc Média') {
+    if (value < 0.4) return 'red-6'
+    if (value < 0.7) return 'orange-6'
+    return 'green-6'
+  }
+  return 'grey-6'
+}
+
+function tokenize(text) {
+  return (text || '')
+    .split(/(\s+)/)
+    .filter(Boolean)
+}
+
+function renderDiff(a, b, side) {
+  const ta = tokenize(a)
+  const tb = tokenize(b)
+  // build frequency maps for quick heuristics
+  const freqA = {}
+  const freqB = {}
+  for (const t of ta) freqA[t] = (freqA[t] || 0) + 1
+  for (const t of tb) freqB[t] = (freqB[t] || 0) + 1
+  const html = ta.map(tok => {
+    const isSpace = /\s+/.test(tok)
+    if (isSpace) return tok
+    const inOther = freqB[tok] > 0
+    if (!inOther) {
+      // token exclusivo deste lado: marcar em vermelho
+      return `<span class="diff-bad">${escapeHtml(tok)}</span>`
+    }
+    // token comum: neutro
+    return escapeHtml(tok)
+  }).join('')
+  return html
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+// SSE Logs
+const eventos = ref([])
+let es = null
+function iniciarSSE() {
+  try {
+    es = new EventSource('http://localhost:8000/processar/eventos')
+    es.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data)
+        eventos.value.unshift({ tipo: payload.event_type, dado: payload, ts: Date.now() })
+        if (eventos.value.length > 200) eventos.value.pop()
+      } catch (_) {}
+    }
+    es.onerror = () => { console.warn('SSE erro') }
+  } catch (err) {
+    console.error('Falha ao iniciar SSE', err)
+  }
+}
 </script>
+
+<style scoped>
+.doc-pane {
+  min-height: 200px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.diff-bad {
+  background-color: #fdecea;
+  color: #c62828;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+</style>
+
