@@ -1,6 +1,6 @@
 <template>
   <q-page class="fit">
-    <q-splitter v-model="splitterModel" class="fit"  :limits="[30, 70]">
+    <q-splitter v-model="splitterModel" class="fit" :limits="[30, 70]">
       <template v-slot:before>
         <HtmlViewer :url="selectedVariantUrl" :title="selectedVariantTitle" />
       </template>
@@ -179,6 +179,10 @@
                   <div class="q-pa-sm text-right">
                     <q-btn label="Atualizar" icon="refresh" flat size="sm" @click="carregarVariantes"
                       :disable="!selecionado" />
+                    <q-btn v-if="selecionado" label="Re-exportar Baseline" icon="publish" flat size="sm" color="primary"
+                      class="q-ml-sm" :loading="reexportandoBaseline" @click="reexportar('baseline')" />
+                    <q-btn v-if="selecionado" label="Re-exportar Adapted" icon="publish" flat size="sm"
+                      color="secondary" class="q-ml-xs" :loading="reexportandoAdapted" @click="reexportar('adapted')" />
                   </div>
                   <q-table v-if="variantes.length" :rows="variantes" :columns="colunasVariantes" row-key="filename" flat
                     dense class="cursor-pointer" :pagination="{ rowsPerPage: 0 }" hide-bottom @row-click="onRowClick">
@@ -247,7 +251,7 @@
                   </div>
                   <div class="text-caption text-grey-8 q-mt-sm">Sintaxe habilitada: {{
                     resultadoAvaliacao.sintaxe_habilitada ? 'sim'
-                    : 'não (modelo spaCy ausente)' }}</div>
+                      : 'não (modelo spaCy ausente)' }}</div>
                 </q-card-section>
               </q-card>
             </q-expansion-item>
@@ -260,16 +264,17 @@
                     <div class="text-caption text-grey-8">{{ eventos.length }} eventos capturados</div>
                   </div>
                   <div class="col-auto">
-                    <q-btn label="Ver Logs" icon="visibility" color="primary" rounded outline @click="modalLogs = true" />
+                    <q-btn label="Ver Logs" icon="visibility" color="primary" rounded outline
+                      @click="modalLogs = true" />
                   </div>
                 </div>
               </q-card-section>
             </q-card>
 
-            <q-dialog v-model="modalLogs" style="max-width: 800px; width: 100%; max-height: 80vh;">
-              <q-card  class="q-pa-md rounded-borders">
+            <q-dialog v-model="modalLogs" style="max-width:50vh; width: 100%; max-height: 80vh;">
+              <q-card class="q-pa-md rounded-borders" style="max-width:70vh; width: 100%;">
                 <q-card-section class="row items-center q-pb-none">
-                  <div class="text-h6">Logs em Tempo Real</div>
+                  <div class="title text-weight-bold text-capitalize ">Logs em Tempo Real</div>
                   <q-space />
                   <q-btn icon="close" flat round dense v-close-popup />
                 </q-card-section>
@@ -277,7 +282,7 @@
                 <q-card-section class="scroll">
                   <div v-if="!eventos.length" class="text-center text-grey-6 q-pa-lg">
                     <q-icon name="pending" size="48px" class="q-mb-md" />
-                    <div class="text-h6">Aguardando eventos...</div>
+                    <div class="title text-weight-bold text-capitalize ">Aguardando eventos...</div>
                     <div class="text-caption">Os logs aparecerão aqui quando o processamento iniciar</div>
                   </div>
 
@@ -317,7 +322,8 @@
         <!-- Conteúdo do Glossário -->
         <div v-if="helpType === 'glossario'" class="fit display-flex column">
           <q-card-section>
-            <div class="text-h6 text-primary">Glossário: Precisão Terminológica e Desambiguação</div>
+            <div class="text-h6 text-weight-bold text-capitalize  text-primary">Glossário: Precisão Terminológica e
+              Desambiguação</div>
           </q-card-section>
 
           <q-card-section class="q-pt-none scroll col">
@@ -329,7 +335,7 @@
 
             <q-separator class="q-my-md" />
 
-            <div class="text-h6 q-mb-sm text-grey-9">1. O Problema da Consistência</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">1. O Problema da Consistência</div>
             <p class="text-justify">
               Em traduções jurídicas longas, modelos de IA tendem a variar a tradução de um mesmo termo (ex: traduzir
               "Contratada" ora como <em>Contractor</em>, ora como <em>Hired Party</em>). O Glossário elimina essa
@@ -337,7 +343,9 @@
               forçando o modelo a usar sempre o termo definido, garantindo a integridade do documento.
             </p>
 
-            <div class="text-h6 q-mb-sm text-grey-9">2. Desambiguação Semântica (Polissemia)</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">2. Desambiguação Semântica
+              (Polissemia)
+            </div>
             <p class="text-justify">
               Uma das maiores dificuldades na tradução é a <strong>polissemia</strong>: quando uma palavra tem múltiplos
               significados dependendo do contexto. O sistema utiliza <strong>Notas de Contexto</strong> para resolver
@@ -383,7 +391,7 @@
               </div>
             </div>
 
-            <div class="text-h6 q-mb-sm text-grey-9">3. Prioridade sobre o Modelo</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">3. Prioridade sobre o Modelo</div>
             <p class="text-justify">
               As instruções do Glossário têm peso maior que o conhecimento pré-treinado do modelo. Mesmo que o Google
               Gemini
@@ -397,7 +405,9 @@
         <!-- Conteúdo do Corpus -->
         <div v-if="helpType === 'corpus'" class="fit display-flex column">
           <q-card-section>
-            <div class="text-h6 text-secondary">Corpus: Memória de Tradução e Estilo Jurídico</div>
+            <div class="text-h6 text-weight-bold text-capitalize  text-primary">Corpus: Memória de Tradução e Estilo
+              Jurídico
+            </div>
           </q-card-section>
 
           <q-card-section class="q-pt-none scroll col">
@@ -409,7 +419,8 @@
 
             <q-separator class="q-my-md" />
 
-            <div class="text-h6 q-mb-sm text-grey-9">1. Busca Semântica (Embeddings)</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">1. Busca Semântica (Embeddings)
+            </div>
             <p class="text-justify">
               Diferente de uma busca tradicional (Ctrl+F) que procura palavras exatas, o Corpus utiliza
               <strong>Embeddings
@@ -426,7 +437,9 @@
               vocabulário.
             </p>
 
-            <div class="text-h6 q-mb-sm text-grey-9">2. Aprendizado "Few-Shot" (Exemplos)</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">2. Aprendizado "Few-Shot"
+              (Exemplos)
+            </div>
             <p class="text-justify">
               Grandes Modelos de Linguagem (LLMs) aprendem muito bem com exemplos. Ao recuperar 3 ou 5 pares de tradução
               do
@@ -440,7 +453,9 @@
               necessidade de um retreino custoso (Fine-Tuning).
             </p>
 
-            <div class="text-h6 q-mb-sm text-grey-9">3. Transferência de Estilo e "Legalese"</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">3. Transferência de Estilo e
+              "Legalese"
+            </div>
             <div class="q-pa-md bg-grey-2 rounded-borders q-mb-md">
               <div class="text-subtitle2 q-mb-xs">Exemplo Prático: Cláusulas Padrão (Boilerplate)</div>
               <q-card flat bordered class="bg-white q-pa-sm q-mb-sm">
@@ -449,7 +464,7 @@
 
                 <q-separator class="q-my-xs" />
 
-                <div class="text-caption text-secondary">Exemplo Recuperado do Corpus:</div>
+                <div class="text-caption text-primary">Exemplo Recuperado do Corpus:</div>
                 <div class="text-italic">"Fica eleito o foro da cidade do Rio de Janeiro para dirimir..."</div>
                 <div class="text-weight-bold text-green-9">Tradução de Ref: "The courts of the city of Rio de Janeiro
                   are
@@ -463,7 +478,9 @@
               </div>
             </div>
 
-            <div class="text-h6 q-mb-sm text-grey-9">4. A Importância das Tags (Filtragem)</div>
+            <div class="title text-weight-bold text-capitalize  q-mb-sm text-grey-9">4. A Importância das Tags
+              (Filtragem)
+            </div>
             <p class="text-justify">
               O Direito é vasto e terminologias mudam drasticamente entre áreas. As <strong>Tags</strong> funcionam como
               barreiras de proteção para o contexto.
@@ -544,6 +561,8 @@ const carregando = computed(() => documentsStore.carregando)
 const processamento = computed(() => documentsStore.processamento)
 const processando = ref(false)
 const variantes = computed(() => documentsStore.variantes)
+const reexportandoBaseline = ref(false)
+const reexportandoAdapted = ref(false)
 
 const colunasVariantes = [
   { name: 'variante', label: 'Variante', field: 'variante', align: 'left' },
@@ -604,6 +623,22 @@ function onRowClick(evt, row) {
   const baseUrl = 'http://localhost:8000'
   selectedVariantUrl.value = `${baseUrl}/resultados/html/${row.filename}`
   selectedVariantTitle.value = `${row.filename} (${row.variante})`
+}
+
+async function reexportar(variant) {
+  if (!selecionado.value) return
+  const flag = variant === 'baseline' ? 'reexportandoBaseline' : 'reexportandoAdapted'
+  if (variant === 'baseline') reexportandoBaseline.value = true
+  else reexportandoAdapted.value = true
+  try {
+    await documentsStore.reexportar(selecionado.value, idioma.value, variant)
+    $q.notify({ type: 'positive', message: `Re-exportação ${variant} concluída` })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Falha re-exportação: ' + (e.message || e) })
+  } finally {
+    if (variant === 'baseline') reexportandoBaseline.value = false
+    else reexportandoAdapted.value = false
+  }
 }
 
 async function handleContextSubmit() {

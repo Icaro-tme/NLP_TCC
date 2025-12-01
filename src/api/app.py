@@ -22,6 +22,7 @@ from .controllers.process_controller import ProcessController
 from .controllers.feedback_controller import FeedbackController
 from .controllers.export_controller import ExportController
 from .controllers.evaluation_controller import EvaluationController
+from .controllers.node_controller import NodeController
 
 app = FastAPI(title="NLP TCC API", version="0.2")
 
@@ -59,6 +60,7 @@ app.include_router(ProcessController(paths_obj).get_router())
 app.include_router(FeedbackController(paths_obj).get_router())
 app.include_router(ExportController(paths_obj).get_router())
 app.include_router(EvaluationController(paths_obj).get_router())
+app.include_router(NodeController(paths_obj).get_router())
 
 
 def build_paths() -> PathsConfig:

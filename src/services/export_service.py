@@ -49,6 +49,11 @@ class ExportService:
             node = node_lookup.get(node_path)
             if not node:
                 continue
+            # Adiciona atributo estável com o ID do banco 
+            # Ex.: <div data-node-id="0.2.0" data-node-database-id="17"> ...
+            db_id = node.get("id") or node.get("node_id")  
+            if db_id is not None:
+                element.attrs["data-node-database-id"] = str(db_id)
             # Prioridade: se variante == adapted e há human_text, usar humano.
             if variant == "adapted":
                 text_value = (
@@ -69,8 +74,16 @@ class ExportService:
             )
             # Parse the decoded HTML so inline tags are not escaped as text
             fragment = BeautifulSoup(decoded_html, "html.parser")
-            for child in list(fragment.body.contents if fragment.body else fragment.contents):
-                element.append(child)
+            # Envolve conteúdo em um wrapper clicável garantindo área de clique
+            wrapper = soup.new_tag("span")
+            wrapper.attrs["class"] = (element.get("class", []) or []) + ["tcc-node-wrapper"]
+            if db_id is not None:
+                wrapper.attrs["data-node-database-id"] = str(db_id)
+            # move conteúdo decodificado para dentro do wrapper
+            content_iter = list(fragment.body.contents if fragment.body else fragment.contents)
+            for child in content_iter:
+                wrapper.append(child)
+            element.append(wrapper)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(str(soup), encoding="utf-8")
 
