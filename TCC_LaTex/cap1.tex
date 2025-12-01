@@ -1,88 +1,63 @@
 \chapter{Introdução}
 
-No cenário atual de globalização,o acesso à informação legal transcende as fronteiras nacionais, permitindo que indivíduos e comunidades possam entender e interagir com sistemas jurídicos estrangeiros. O acesso a documentos legais traduzidos é essencial para garantir que cidadãos, imigrantes, estudantes e profissionais do direito possam compreender seus direitos e deveres em diferentes jurisdições, sem depender exclusivamente de tradutores especializados. A tradução de documentos jurídicos, portanto, assume um papel crucial na promoção da acessibilidade à justiça e na construção de pontes de entendimento entre diferentes culturas e legislações.
+No cenário atual de globalização, o acesso à informação legal transcende as fronteiras nacionais, permitindo que indivíduos e comunidades entendam e interajam com sistemas jurídicos estrangeiros. O acesso a documentos legais traduzidos é essencial para garantir que cidadãos, imigrantes, estudantes e profissionais do direito possam compreender seus direitos e deveres em diferentes jurisdições, sem depender exclusivamente de tradutores especializados. A tradução de documentos jurídicos, portanto, assume um papel crucial na promoção da acessibilidade à justiça e na construção de pontes de entendimento entre diferentes culturas e legislações.
 
-No entanto, a tradução jurídica não é uma tarefa trivial, pois envolve nuances que vão além da simples conversão linguística. O sistema jurídico carrega consigo terminologias específicas, que podem ter interpretações e implicações diferentes dependendo do contexto, ou então palavras onde o significado difere em uso cotidiano. A tradução precisa não apenas transmitir o conteúdo literal, mas também o contexto e a intenção das disposições legais, o que é particularmente importante para evitar mal-entendidos que possam resultar em consequências legais.
+No entanto, a tradução jurídica não é uma tarefa trivial, pois envolve nuances que vão além da simples conversão linguística. O sistema jurídico carrega consigo terminologias específicas que podem ter interpretações e implicações diferentes, dependendo do contexto, ou então palavras cujo significado difere do uso cotidiano. A tradução precisa não apenas transmitir o conteúdo literal, mas também o contexto e a intenção das disposições legais, o que é particularmente importante para evitar mal-entendidos que possam resultar em consequências jurídicas.
 
-Diante desse contexto, surge a necessidade de desenvolver sistemas de tradução automática que sejam capazes de lidar com as particularidades da linguagem jurídica, capturando as nuances culturais e legais inerentes a cada assunto legal. Este trabalho propõe o desenvolvimento de um sistema de tradução automática baseado em Processamento de Linguagem Natural, focado na tradução de documentos jurídicos entre o português e o inglês. O objetivo é criar um modelo que não apenas traduza termos e frases, mas que também interprete o contexto legal e cultural, garantindo que o significado e as implicações legais sejam corretamente transmitidos na língua alvo.
-
-%%%%
-% A tradução de documentos jurídicos é um campo complexo que requer não apenas fluência nas línguas envolvidas, mas também um profundo entendimento do contexto legal e cultural em que esses documentos foram produzidos. Isso se deve ao fato de que muitos termos legais podem ter significados e implicações diferentes em diferentes jurisdições. Por exemplo, a expressão "liberdade de expressão" é tratada de maneira distinta no Brasil e nos Estados Unidos da América (EUA). Enquanto a legislação brasileira limita essa liberdade até o ponto em que ela possa infringir o direito dos outros, nos EUA, a liberdade de expressão é amplamente considerada como um direito absoluto, protegida pela Primeira Emenda à Constituição dos Estados Unidos (\textit{First Amendment to the United States Constitution}).
-
-
-% Essa distinção filosófica ilustra a importância de compreender as sutilezas de cada sistema legal ao realizar traduções. Uma tradução automatizada que não leva em conta esses contextos pode resultar em interpretações errôneas e potencialmente prejudiciais, especialmente quando se trata de documentos legais que afetam direitos e responsabilidades civis.
+Diante desse contexto, surge a necessidade de desenvolver soluções que unam pesquisa em Processamento de Linguagem Natural (PLN) e engenharia de software para produzir ferramentas práticas que atendam aos requisitos de fidelidade terminológica e preservação documental do meio jurídico. Este trabalho propõe o desenvolvimento de um sistema de tradução automática baseado em PLN, com ênfase na construção de um protótipo funcional \textit{full-stack} para tradução de documentos jurídicos entre o português, o inglês e o espanhol. Além da fundamentação teórica sobre contextualização e tradução automática, o projeto entrega um produto mínimo viável (MVP) que processa documentos HTML reais, preserva a estrutura documental (marcadores, parágrafos e placeholders) e integra técnicas modernas de linguagem — incluindo modelos de linguagem de larga escala (LLMs) via API — e uma camada opcional de contextualização por recuperação (RAG leve).
 
 \section{Problemática}
 
-Apesar das inovações em tradução automática, a complexidade da linguagem judicial e as sutilezas culturais continuam a ser desafios substanciais. A questão central que este trabalho busca abordar é: \textbf{como a tecnologia de Processamento de Linguagem Natural (NLP) pode efetivamente capturar e refletir as nuances culturais e legais, ao traduzir documentos jurídicos?}. As implicações éticas e legais da tradução inadequada de termos críticos ressaltam a necessidade de um enfoque mais refinado e consciente na tradução automática de documentos jurídicos.
+Apesar das inovações em tradução automática, a complexidade da linguagem judicial e as sutilezas culturais continuam a ser desafios substanciais. A questão central que este trabalho busca abordar é: \textbf{como a tecnologia de Processamento de Linguagem Natural (PLN), incluindo modelos de linguagem de larga escala, pode ser aplicada em um sistema prático para capturar e refletir as nuances culturais e legais ao traduzir documentos jurídicos, preservando sua integridade estrutural?} As implicações éticas e legais da tradução inadequada de termos críticos ressaltam a necessidade de um enfoque mais refinado e consciente na tradução automática de documentos jurídicos.
 
-%TODO/Already Did(?): Aqui também posso elaborar a problemática do acesso à documentos legais brasileiros em portugues, que é uma linguagem que possui uma gama muito ampla de vocabulário para palavras que têm o mesmo significado semântico, algo que pode ser complicado em uma tradução de um documento extenso, ainda mais legalmente, onde se usa um tipo de palavreado extremamente decorado e às vezes mais complicado doque deveria, devido a expectativa cultural de aplicar uma norma de jargão de norma culta e as vezes de um portugues quase arcaico, mas preciso também num futuro procurar um exemplo pra sustentar esse argumento
-
-Além disso, o acesso a documentos legais brasileiros traduzidos do português apresenta uma problemática própria. A legislação brasileira frequentemente utiliza um vocabulário vasto, repleto de sinônimos e expressões que podem ter significados semelhantes, mas que carregam conotações distintas. Essa riqueza lexical, embora seja um reflexo da diversidade e da riqueza cultural do idioma, pode complicar a tarefa de tradução. Palavras que têm o mesmo significado semântico podem ser escolhidas com base em nuances específicas que variam conforme o contexto jurídico, a tradição legal e as expectativas culturais.
-
-A linguagem utilizada nos documentos jurídicos muitas vezes se caracteriza por um jargão técnico e uma formalidade que pode tornar a interpretação e a tradução ainda mais desafiadoras. O uso de uma norma culta que pode beirar o arcaico não só dificulta a compreensão para aqueles que não estão familiarizados com o contexto legal, mas também impõe uma expectativa cultural que pode ser difícil de replicar em outra língua. 
-
-%Essas questões tornam ainda mais urgente a necessidade de um sistema de tradução automática que não apenas traduza palavras de forma literal, mas que também considere o contexto legal e cultural, promovendo um entendimento claro e preciso dos textos traduzidos. Assim, a problemática se amplia para a criação de um modelo de NLP que possa lidar com essa complexidade linguística e garantir a acessibilidade e a precisão da tradução de documentos legais.
-
-%TODO: Talvez caberia fazer um estudo de caso pra ver se faz sentido esse argumento. "Os termos “responsabilidade civil subjetiva” e “responsabilidade subjetiva do estado” têm significados específicos e distintos dentro do direito brasileiro, mas um tradutor automático poderia falhar em captar essas nuances ao aplicar traduções diretas" -> Verificar essa informação (Entrar num discord de estudante de advocacia talvez)
+Além das nuances linguísticas, existe um desafio técnico frequentemente negligenciado: \textbf{a preservação da estrutura documental}. Documentos jurídicos frequentemente vêm em formatos com marcações (HTML) que carregam significado — cabeçalhos, parágrafos legalmente numerados, citações e placeholders. A simples perda, reordenação ou mesclagem desses elementos durante o processo de tradução pode comprometer a integridade do documento. Outro aspecto prático é a consistência terminológica: garantir que termos jurídicos críticos sejam traduzidos de forma consistente ao longo de um mesmo documento ou de documentos relacionados. Portanto, a problemática deste trabalho combina dois eixos: (a) captura de nuances culturais e jurídicas por meio de PLN; (b) projeto e avaliação de uma pipeline orientada à engenharia capaz de traduzir documentos HTML preservando sua organização e coerência terminológica.
 
 \section{Justificativa}
 
-A crescente quantidade de documentos jurídicos disponíveis online, aliada à necessidade de acesso a informações legais em um contexto global, torna urgente o desenvolvimento de soluções de tradução que considerem as especificidades culturais. A tradução automática não apenas facilita o acesso à informação, mas também desempenha um papel crucial na promoção da justiça e da equidade no acesso a direitos legais. Portanto, investigar e implementar métodos que melhorem a sensibilidade cultural nas traduções automáticas é uma contribuição valiosa para ambos os campos da tradução e do direito.
- 
-\section{Objetivo}
-\subsection{ Objetivo geral}
+A crescente quantidade de documentos jurídicos disponibilizados online, aliada à necessidade de acesso à informação em um contexto global, torna urgente o desenvolvimento de soluções que considerem tanto as especificidades culturais quanto os requisitos práticos de preservação documental. A tradução automática pode ampliar o acesso à informação legal, mas somente se implementada de maneira a minimizar riscos decorrentes de perdas estruturais ou de inconsistência terminológica. Assim, investigar e implementar um sistema que una teoria (estudos sobre contextualização em PLN) e prática (um protótipo fullstack reprodutível) é uma contribuição relevante para as áreas de tradução automática, direito e engenharia de software.
 
-Desenvolver um sistema de tradução automática baseado em Processamento de Linguagem Natural (NLP) que capture e reflita as nuances culturais e legais na tradução de documentos jurídicos entre o português e o inglês.
+\section{Objetivo}
+
+\subsection{Objetivo geral}
+
+Desenvolver e avaliar um protótipo fullstack de tradução automática para documentos jurídicos, baseado em técnicas de Processamento de Linguagem Natural (PLN) e integração com modelos de linguagem de larga escala, priorizando a preservação da estrutura HTML e a consistência terminológica entre o português e o inglês.
 
 \subsection{Objetivos específicos}
 
 Considerando o desenvolvimento do trabalho e o objetivo geral apresentado, destacam-se os seguintes objetivos específicos:
 
-
 \begin{itemize}
-
-    \item Pesquisar sobre as dificuldades e nuances presentes na tradução de documentos jurídicos entre o português e o inglês;
-	
-    \item Levantar exemplos de termos jurídicos que apresentam nuancias na tradução e suas implicações legais;
-    %Exemplo da diferença entre liberdade de expressão, procurar outros exemplos. Ideias: Legislação de Privacidade de dados, Igualdade, Expressão de liberdade religiosa
-    
-    \item Realizar testes de tradução utilizando um conjunto de dados que represente documentos jurídicos em português e suas traduções para o inglês;
-
-    \item Analisar a eficácia do sistema de tradução em capturar nuances culturais e legais, comparando as traduções automáticas com traduções realizadas por profissionais;
-    %comparando as traduções automáticas com NPL com traduções automáticas feitas com tradutores convencionaius tipo Bing ou Google
-    
-    %Se achar traduções realizadas por profissionais não for uma idéia viável, pensei em fazer uma "pesquisa de satisfação" usando feedback de estudantes no meio legal. Não sei o quanto vale a experiência de um usuario comum fora da área, mas também tenho uma grande gama de amigos estrangeiros que posso pedir pra analizar a facilidade de compreensão e qualidade de tradução de um documento legal escrito originalmente em portugues, talvez pedir pra analizar se fica claro as distinções de nuancia, ou até fazer uma comparação com um arquivo traduzido literalmente usando Bing ou Google tradutor
-    
-    \item Publicar os resultados e contribuir para a discussão sobre a importância da precisão na tradução de textos jurídicos.
-    %Compartilhar resultados com Discord/Forúm/Reddit/Publico online bilingue/Estudantes de advocacia e receber feedback
-    
+    \item Projetar e implementar uma pipeline fullstack (frontend + backend) capaz de processar documentos jurídicos em HTML, segmentá-los, traduzir trechos preservando marcadores e placeholders, e remontar o documento traduzido;
+    \item Integrar o protótipo com serviços de geração de linguagem (LLMs) via API e, opcionalmente, com uma camada de recuperação de contexto (RAG leve) baseada em glossário e corpus;
+    \item Documentar e comparar tentativas experimentais com abordagens alternativas (por exemplo, modelos seq2seq disponíveis via Hugging Face), descrevendo as limitações práticas observadas;
+    \item Avaliar a eficácia do sistema por meio de métricas automáticas (BLEU, WER, PER, TER) e análises qualitativas, verificando o ganho de consistência terminológica e a preservação estrutural;
+    \item Publicar os resultados e oferecer recomendações práticas para a aplicação de PLN em contextos jurídicos, destacando limitações e direções futuras.
 \end{itemize}
 
 \section{Metodologia}
 
-%TODO: Estudo de caso cabe aqui? Não sei se exatamente, se isso se trataria de um estudo onde ISSO realmente foi um ponto levantado. Talvez um Estudo DOCUMENTAL é oque cabe aqui? Se eu pudesse achar um documento onde uma interpretação indevida PUDESSE ocorrer, ou ocorre ao traduzir de forma literal, e pudesse então fazer uma análise de como o problema poderia ser atacado por uma NLP
-A metodologia deste trabalho consiste em primeiramente, uma pesquisa exploratória e aplicada, que busca entender as nuances da linguagem jurídica e desenvolver um sistema de tradução automática. 
+A metodologia deste trabalho combina investigação bibliográfica com desenvolvimento experimental aplicado. Inicialmente, será realizada uma revisão da literatura sobre tradução automática, contextualização em PLN e aspectos específicos da linguagem jurídica. Em seguida, procede-se ao desenvolvimento do protótipo, composto por:
 
-%Inicialmente, será realizada uma revisão bibliográfica sobre os desafios da tradução jurídica e as tecnologias de NLP. Essa pesquisa incluirá a análise de exemplos práticos de traduções problemáticas e a coleta de dados relevantes.
+\begin{itemize}
+    \item um frontend desenvolvido com Quasar Framework e Vue.js para upload, visualização e avaliação de documentos;
+    \item um backend em Python com FastAPI responsável pela orquestração do pipeline: leitura e indexação de HTML, segmentação em nós, armazenamento em banco, integração com backends de tradução (serviços LLM via API) e montagem de variantes traduzidas;
+    \item um componente de contextualização (RAG leve) que recupera trechos relevantes de um glossário/corpus para adaptar a tradução quando aplicável;
+    \item serviços de exportação (HTML/TXT) que preservam a estrutura original do documento;
+    \item um módulo de avaliação que calcula métricas automáticas e permite comparações com traduções humanas de referência.
+\end{itemize}
 
-A seguir, o desenvolvimento do sistema de tradução envolverá a seleção de um dataset com documentos jurídicos em português e suas traduções correspondentes para o inglês. Utilizando técnicas de NLP, o sistema será treinado para reconhecer e traduzir termos jurídicos, levando em consideração as nuances culturais.
-
-Serão realizados testes de validação, onde as traduções automáticas serão comparadas com traduções humanas, a fim de avaliar a precisão e a eficácia do sistema. A análise dos resultados permitirá identificar áreas de melhoria e as contribuições do sistema para a tradução de documentos jurídicos.
+Serão realizados experimentos comparativos entre estratégias (baseline sem contexto, adapted com contexto recuperado) e também será relatado o histórico de tentativas com modelos seq2seq open-source (Hugging Face), descrevendo problemas práticos observados (limite de tokens, fragmentação de parágrafos, dificuldades na integração de glossários). Os resultados quantitativos e qualitativos serão analisados para identificar ganhos e limitações da solução proposta.
 
 \section{Organização}
+
 O presente trabalho está organizado da seguinte forma:
 
-Capítulo 2: Revisão da Literatura de trabalhos relacionados, abordando os conceitos fundamentais da Tradução de Máquina e aplicações em contexto jurídico.
-%Capítulo 2: Aborda os conceitos fundamentais do Processamento de Linguagem Natural e as especificidades da linguagem jurídica. 
+Capítulo 2: Revisão da Literatura — trabalhos relacionados, conceitos fundamentais de Tradução de Máquina, contextualização em PLN e desafios jurídicos.
 
-%Capítulo 2: Desenvolve estudos sobre casos práticos onde a tradução de máquina comum falha em replicar claro entendimento sobre o tópico jurídico, e como um sistema de NLP pode suceder com melhorias.
-%Analise de quais são os problemas (exemplos de distinção de contexto/cultural)
+Capítulo 3: Metodologia — detalhamento da abordagem adotada, descrição da pipeline, das ferramentas e das métricas de avaliação.
 
-Capítulo 3: Discute os métodos e técnicas de NLP aplicáveis à tradução automática, desenvolvendo estudos de caso e incluindo a modelagem do sistema. %Analise de como abordar a resolução do problema (vou aplicar alguma regra adicional no código? Fazer o sistema adicionar alguma nota de rodapé? até o momento acho q a abordagem q seja mais simples é usar um modelo pré-treinado, e tentar fazer manualmente um reforço na tradução pra que o NLP simplesmente elabore um pouco mais, algum tipo de situação que requer contexto adicional.
+Capítulo 4: Proposta e Implementação — arquitetura do sistema, componentes do protótipo (frontend, backend, RAG, telemetria) e decisões de projeto.
 
-%Capítulo 4: Apresenta o desenvolvimento do sistema de tradução automática, detalhando as etapas de treinamento e validação do modelo.
+Capítulo 5: Resultados e Discussão — experimentos executados, métricas, comparação entre variantes, análise qualitativa e limitações.
 
-%Capítulo 5: Discute os resultados dos testes realizados, incluindo a análise comparativa entre amostras de traduções automáticas e as traduções feitas por humanos, além de suas implicações para o campo da tradução jurídica.
-
-
+Capítulo 6: Conclusão e Trabalhos Futuros — síntese das contribuições, implicações práticas e sugestões para a continuidade do trabalho.
