@@ -91,6 +91,39 @@ export const useDocumentsStore = defineStore('documents', {
       }
     },
 
+    async reexportar(documento, idioma, variante) {
+      if (!documento) throw new Error('Documento inválido')
+      try {
+        const body = { doc: documento.replace(/\.html$/, ''), language: idioma || 'en', variant: variante, source_lang: 'pt' }
+        await api.post('/exportar/html', body)
+        await this.listarVariantes(documento, idioma)
+        return true
+      } catch (err) {
+        this.erro = normalizeError(err)
+        throw err
+      }
+    },
+
+    async obterNo(nodeId) {
+      try {
+        const { data } = await api.get(`/nodos/${nodeId}`)
+        return data
+      } catch (err) {
+        this.erro = normalizeError(err)
+        throw err
+      }
+    },
+
+    async salvarTextoHumano(nodeId, texto, overwriteAdapted = false) {
+      try {
+        const { data } = await api.post(`/nodos/${nodeId}/humano`, { texto, overwrite_adapted: overwriteAdapted })
+        return data
+      } catch (err) {
+        this.erro = normalizeError(err)
+        throw err
+      }
+    },
+
     async adicionarGlossario(payload) {
       try {
         const { data } = await api.post('/glossario/entradas', payload)
