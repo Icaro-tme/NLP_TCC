@@ -44,19 +44,16 @@ class EvaluationController(BaseController):
                 )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Erro na avaliação: {e}")
+            # Ajuste: Novo objeto DocResult retorna somente métricas globais relevantes.
             payload = {
                 "documento": resultado.documento,
                 "idioma": resultado.idioma,
                 "variante": resultado.variante,
-                "bleu": resultado.bleu,
-                "chrf": resultado.chrf,
-                "ter": resultado.ter,
-                "jaccard_medio": resultado.jaccard_medio,
-                "pos_accuracy_media": resultado.pos_accuracy_media,
-                "sintaxe_habilitada": resultado.sintaxe_habilitada,
-            }
-            payload.update({
+                "bleu": getattr(resultado, "bleu", None),
+                "wer": getattr(resultado, "wer", None),
+                "per": getattr(resultado, "per", None),
+                "ter": getattr(resultado, "ter", None),
                 "texto_humano": getattr(resultado, "texto_humano", None),
                 "texto_sistema": getattr(resultado, "texto_sistema", None),
-            })
+            }
             return JSONResponse(status_code=status.HTTP_200_OK, content=payload)

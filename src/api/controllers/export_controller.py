@@ -8,7 +8,7 @@ from .base_controller import BaseController
 from ...core.config import PathsConfig
 from ...persistence.db import Database
 from ...persistence.repos import DocumentRepository, NodeRepository
-from ...services.export_service import ExportService
+from ...services.export_service import HTMLExportService
 from ...services.text_export_service import TextExportService
 from ..models.export_models import ExportRequest
 from ...html_io import read_html
@@ -40,7 +40,7 @@ class ExportController(BaseController):
             original_html = read_html(html_path)
             out = self.paths.results_dir / "html" / f"{req.doc}_{req.variant}_{req.language}.html"
             out.parent.mkdir(parents=True, exist_ok=True)
-            ExportService().export_variant(original_html, nodes, req.variant, out)
+            HTMLExportService().export_variant(original_html, nodes, req.variant, out)
             return {"output": str(out)}
 
         @r.post(

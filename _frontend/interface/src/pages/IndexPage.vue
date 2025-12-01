@@ -224,10 +224,9 @@
                   <q-list dense bordered class="rounded-borders q-mb-md">
                     <q-item v-for="r in [
                       { k: 'BLEU', v: resultadoAvaliacao.bleu },
-                      { k: 'chrF', v: resultadoAvaliacao.chrf },
-                      { k: 'TER', v: resultadoAvaliacao.ter },
-                      { k: 'Jaccard', v: resultadoAvaliacao.jaccard_medio },
-                      { k: 'POS Acc', v: resultadoAvaliacao.pos_accuracy_media }
+                      { k: 'WER', v: resultadoAvaliacao.wer },
+                      { k: 'PER', v: resultadoAvaliacao.per },
+                      { k: 'TER', v: resultadoAvaliacao.ter }
                     ]" :key="r.k">
                       <q-item-section>{{ r.k }}</q-item-section>
                       <q-item-section side>
@@ -249,9 +248,6 @@
                       </div>
                     </div>
                   </div>
-                  <div class="text-caption text-grey-8 q-mt-sm">Sintaxe habilitada: {{
-                    resultadoAvaliacao.sintaxe_habilitada ? 'sim'
-                      : 'não (modelo spaCy ausente)' }}</div>
                 </q-card-section>
               </q-card>
             </q-expansion-item>
@@ -733,24 +729,19 @@ function metricColor(name, value) {
     if (value < 40) return 'orange-6'
     return 'green-6'
   }
-  if (name === 'chrF') {
-    if (value < 40) return 'red-6'
-    if (value < 60) return 'orange-6'
+  if (name === 'WER') {
+    if (value > 0.6) return 'red-6'
+    if (value > 0.3) return 'orange-6'
+    return 'green-6'
+  }
+  if (name === 'PER') {
+    if (value > 0.6) return 'red-6'
+    if (value > 0.3) return 'orange-6'
     return 'green-6'
   }
   if (name === 'TER') {
     if (value > 70) return 'red-6'
     if (value > 50) return 'orange-6'
-    return 'green-6'
-  }
-  if (name === 'Jaccard' || name === 'Jaccard Médio') {
-    if (value < 0.3) return 'red-6'
-    if (value < 0.6) return 'orange-6'
-    return 'green-6'
-  }
-  if (name === 'POS Acc' || name === 'POS Acc Média') {
-    if (value < 0.4) return 'red-6'
-    if (value < 0.7) return 'orange-6'
     return 'green-6'
   }
   return 'grey-6'

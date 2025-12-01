@@ -63,7 +63,7 @@ from src.dom_indexer import index_html
 from src.html_io import read_html, write_html
 from src.persistence.db import Database
 from src.persistence.repos import DocumentRepository, NodeRepository
-from src.services.export_service import ExportService
+from src.services.export_service import HTMLExportService
 from src.services.translation_pipeline import ServicoTraducao
 from src.telemetry.context import (
     emit_language_finish,
@@ -522,7 +522,7 @@ def handle_export(args: argparse.Namespace) -> None:
     """Reconstrói um HTML com a variante de tradução desejada.
 
     Variantes:
-    - baseline: texto original (ou baseline da máquina, conforme implementação do ExportService).
+    - baseline: texto original (ou baseline da máquina, conforme implementação do HTMLExportService).
     - adapted: tradução produzida pelo pipeline (recomendada).
     - human: caminho para inserir uma versão humana (se existir no DB).
     """
@@ -551,7 +551,7 @@ def handle_export(args: argparse.Namespace) -> None:
 
     # HTML base + traduções por nó -> reconstrução
     original_html = read_html(html_path)
-    export_service = ExportService()
+    export_service = HTMLExportService()
     logger.info("Exportando variante %s para %s -> %s", args.variant, args.doc, args.language)
     export_service.export_variant(
         original_html=original_html,

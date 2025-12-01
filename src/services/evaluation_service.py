@@ -1,26 +1,24 @@
-"""Serviço de avaliação de qualidade de tradução comparando variante do sistema com tradução humana.
+"""Serviço de avaliação da tradução comparando variante do sistema com tradução humana.
 
-Métricas implementadas:
-- BLEU (sacrebleu)
-- chrF (sacrebleu)
-- TER (sacrebleu)
-- Jaccard médio entre conjuntos de tokens por nó
-- Similaridade sintática aproximada (POS tag match rate) via spaCy (opcional)
+Métricas relevantes (prioridade do TCC):
+- BLEU: similaridade n-gram com penalidade de brevidade.
+- WER: taxa de erros palavra a palavra via distância de Levenshtein.
+- PER: taxa de erros independente de posição (bag-of-words).
+- TER: taxa de edição mínima (sacrebleu: corpus_ter).
 
-Fluxo:
-1. Extração dos textos humanos por nó a partir de HTML (elementos com data-node-id).
-2. Alinhamento com traduções persistidas (baseline/adapted) por node_id usando NodeRepository.
-3. Cálculo das métricas agregadas e por nó.
-
-Observação: para similaridade sintática é tentada carga do modelo 'en_core_web_sm' ou
-o idioma alvo correspondente; caso não disponível, a métrica é omitida.
+Notas de implementação:
+- chrF, Jaccard e POS foram mantidas apenas no método antigo `compute` (por nó), mas
+    para avaliação de documento completo (`compute_doc`) retornamos somente BLEU, WER, PER, TER.
+- Decodificamos placeholders para gerar texto bruto contínuo preservando conteúdo inline.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from bs4 import BeautifulSoup
+import unicodedata
+import html as html_module
 
 from ..persistence.repos import DocumentRepository, NodeRepository
 from ..persistence.db import Database
@@ -232,95 +230,108 @@ class EvaluationService:
 
     # ---------------- Avaliação por Documento (texto integral) -----------------
     def compute_doc(self, documento: str, source_lang: str, target_lang: str, variante: str, human_html: str):
-        """Avalia métricas globais comparando texto integral humano vs texto integral da variante do sistema.
+        """Avalia métricas globais (BLEU, WER, PER, TER) comparando texto humano vs texto da variante.
 
-        Não realiza alinhamento por nó. Extrai texto humano do HTML e texto do sistema
-        decodificando placeholders e concatenando nós na ordem lógica.
+        Passos:
+        1. Concatena textos dos nós (baseline/adapted + fallback original) decodificando placeholders.
+        2. Extrai texto humano bruto do HTML enviado.
+        3. Calcula BLEU e TER via sacrebleu; WER e PER via implementações internas.
         """
         document_id = self.doc_repo.find_document_id(documento, source_lang, target_lang)
         if document_id is None:
             raise ValueError(f"Documento não encontrado para {documento} {source_lang}->{target_lang}")
-        nodes = self.node_repo.list_nodes(document_id)
-        # Texto do sistema via concatenação de nós com decodificação de placeholders
-        try:
-            from .text_export_service import TextExportService
-        except Exception:
-            TextExportService = None  # type: ignore
-        texto_sistema = ""
-        if TextExportService:
-            exporter = TextExportService()
-            # construir conteúdo em memória
-            parts: List[str] = []
+        # Em vez de reconstruir via nós, lê diretamente o HTML exportado da variante
+        from ..html_io import read_html
+        resultados_html = self.paths.results_dir / "html" / f"{documento}_{variante}_{target_lang}.html"
+        if not resultados_html.exists():
+            # Se não existir, tenta versão gerada por CLI com sufixo diferente (fallback)
+            alt = self.paths.results_dir / "html" / f"{documento}_adapted_{target_lang}.html" if variante == 'adapted' else self.paths.results_dir / "html" / f"{documento}_baseline_{target_lang}.html"
+            resultados_html = alt if alt.exists() else resultados_html
+        def _plain_from_html(html_str: str) -> str:
+            soup = BeautifulSoup(html_str, 'html.parser')
+            text = soup.get_text(' ', strip=True)
+            text = html_module.unescape(text)
+            text = text.replace('\xa0', ' ')
+            text = unicodedata.normalize('NFKC', text)
+            text = re.sub(r"\s+", " ", text).strip()
+            return text
+
+        if resultados_html.exists():
+            html_sistema = read_html(resultados_html)
+            texto_sistema = _plain_from_html(html_sistema)
+        else:
+            # Fallback final: concatenação via banco de dados (como antes)
+            nodes = self.node_repo.list_nodes(document_id)
+            partes_sistema: List[str] = []
             for n in nodes:
                 if variante == 'baseline':
                     txt_val = n.get('baseline_text') or n.get('original_text', '')
                 else:
-                    txt_val = n.get('adapted_text') or n.get('baseline_text') or n.get('original_text', '')
-                from ..core.placeholders import PlaceholderEncoder
-                enc = PlaceholderEncoder()
-                decoded = enc.decode_fragment(txt_val, n.get('placeholders', {}))
-                from bs4 import BeautifulSoup as _BS
-                soup = _BS(decoded, 'html.parser')
-                plain = soup.get_text(separator=' ', strip=True)
+                    txt_val = n.get('adapted_text') or n.get('human_text') or n.get('baseline_text') or n.get('original_text', '')
+                plain = _plain_from_html(txt_val)
                 if plain:
-                    parts.append(plain)
-            texto_sistema = "\n\n".join(parts)
-        else:
-            # Fallback simples: concatenar textos sem decodificação
-            parts = []
-            for n in nodes:
-                if variante == 'baseline':
-                    parts.append(n.get('baseline_text') or n.get('original_text', ''))
-                else:
-                    parts.append(n.get('adapted_text') or n.get('baseline_text') or n.get('original_text', ''))
-            texto_sistema = "\n\n".join([re.sub(r"\s+", " ", p).strip() for p in parts if p])
+                    partes_sistema.append(plain)
+            texto_sistema = "\n\n".join(partes_sistema)
 
-        # Texto humano: extrair do HTML
-        from bs4 import BeautifulSoup
-        soup_h = BeautifulSoup(human_html, 'html.parser')
-        texto_humano = re.sub(r"\s+", " ", soup_h.get_text(' ', strip=True))
+        # Texto humano bruto
+        texto_humano = _plain_from_html(human_html)
 
-        refs = [texto_humano]
-        hyps = [texto_sistema]
+        # Tokenização simples por espaços
+        def _tokens(t: str) -> List[str]:
+            return [x for x in re.split(r"\s+", t.strip()) if x]
 
-        # spaCy opcional
-        nlp = None
-        sintaxe_habilitada = False
+        ref_tokens = _tokens(texto_humano)
+        hyp_tokens = _tokens(texto_sistema)
+
+        # WER (Levenshtein)
+        def _wer(ref: List[str], hyp: List[str]) -> Optional[float]:
+            if not ref:
+                return None
+            # matriz (len_ref+1 x len_hyp+1)
+            m, n = len(ref), len(hyp)
+            dp = [[0]*(n+1) for _ in range(m+1)]
+            for i in range(m+1): dp[i][0] = i
+            for j in range(n+1): dp[0][j] = j
+            for i in range(1, m+1):
+                for j in range(1, n+1):
+                    cost = 0 if ref[i-1] == hyp[j-1] else 1
+                    dp[i][j] = min(
+                        dp[i-1][j] + 1,      # deleção
+                        dp[i][j-1] + 1,      # inserção
+                        dp[i-1][j-1] + cost  # substituição
+                    )
+            return dp[m][n] / m if m > 0 else None
+
+        # PER (position-independent error rate)
+        def _per(ref: List[str], hyp: List[str]) -> Optional[float]:
+            if not ref:
+                return None
+            from collections import Counter
+            cref = Counter(ref)
+            chyp = Counter(hyp)
+            correct = sum(min(cref[w], chyp[w]) for w in cref)
+            return (len(ref) - correct) / len(ref)
+
+        wer = _wer(ref_tokens, hyp_tokens)
+        per = _per(ref_tokens, hyp_tokens)
+
+        bleu = ter = None
         try:
-            import spacy
-            model_name = 'en_core_web_sm' if target_lang == 'en' else f'{target_lang}_core_news_sm'
-            nlp = spacy.load(model_name)
-            sintaxe_habilitada = True
-        except Exception:
-            nlp = None
-            sintaxe_habilitada = False
-
-        bleu = chrf = ter = None
-        try:
-            from sacrebleu import corpus_bleu, corpus_chrf, corpus_ter
-            bleu = float(corpus_bleu(hyps, [refs]).score)
-            chrf = float(corpus_chrf(hyps, [refs]).score)
-            ter = float(corpus_ter(hyps, [refs]).score)
+            from sacrebleu import corpus_bleu, corpus_ter
+            bleu = float(corpus_bleu([texto_sistema], [[texto_humano]]).score)
+            ter = float(corpus_ter([texto_sistema], [[texto_humano]]).score)
         except Exception:
             pass
-        jaccard_medio = self.jaccard(hyps[0], refs[0]) if hyps[0] and refs[0] else None
 
-        pos_media = None
-        if nlp and hyps[0] and refs[0]:
-            pos_media = self.pos_match_ratio(hyps[0], refs[0], nlp)
-
-        # Resultado minimal para modo doc
         @dataclass
         class DocResult:
             documento: str
             idioma: str
             variante: str
             bleu: float | None
-            chrf: float | None
+            wer: float | None
+            per: float | None
             ter: float | None
-            jaccard_medio: float | None
-            pos_accuracy_media: float | None
-            sintaxe_habilitada: bool
             texto_humano: str
             texto_sistema: str
 
@@ -329,11 +340,9 @@ class EvaluationService:
             idioma=target_lang,
             variante=variante,
             bleu=bleu,
-            chrf=chrf,
+            wer=wer,
+            per=per,
             ter=ter,
-            jaccard_medio=jaccard_medio,
-            pos_accuracy_media=pos_media,
-            sintaxe_habilitada=sintaxe_habilitada,
             texto_humano=texto_humano,
             texto_sistema=texto_sistema,
         )

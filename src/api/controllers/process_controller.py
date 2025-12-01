@@ -15,7 +15,7 @@ from ...persistence.db import Database
 from ...persistence.repos import DocumentRepository, NodeRepository
 from ...services.translation_pipeline import ServicoTraducao
 from ..models.process_models import ProcessRequest
-from ...services.export_service import ExportService
+from ...services.export_service import HTMLExportService
 
 class ProcessController(BaseController):
     def __init__(self, paths: PathsConfig):
@@ -90,7 +90,7 @@ class ProcessController(BaseController):
             results_html_dir = self.paths.results_dir / "html"
             results_html_dir.mkdir(parents=True, exist_ok=True)
 
-            exporter = ExportService()
+            exporter = HTMLExportService()
 
             # Exporta Baseline
             out_baseline = results_html_dir / f"{doc_name}_baseline_{req.language}.html"

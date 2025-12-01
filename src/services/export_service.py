@@ -25,7 +25,7 @@ from bs4 import BeautifulSoup
 from ..core.placeholders import PlaceholderEncoder
 
 
-class ExportService:
+class HTMLExportService:
     """Reconstrói variantes HTML a partir dos nós persistidos.
 
     Para a variante "adapted" prioriza `human_text` quando disponível.
