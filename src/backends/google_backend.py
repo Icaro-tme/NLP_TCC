@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import os
+from typing import Sequence
+
+import google.generativeai as genai  
+
+
+DEFAULT_MODEL = "gemini-1.5-flash"  # default; will fallback if unavailable
+
+
+class GoogleLLMBackend:
+    """Minimal placeholder; raises if no API key provided.
+
+    Expected env var: GOOGLE_API_KEY
+    Implementation outline (not active yet):
+      - from google import genai
+      - client = genai.Client(api_key=...)
+      - prompt engineering to preserve <ph data-id="PHxxxx"> markers.
+    """
+
+    def __init__(self, model: str = DEFAULT_MODEL) -> None:
+        self.model = model
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+
+    def translate(self, text: str, source_lang: str, target_lang: str, max_length: int | None = None, contexto: str | None = None) -> str:
+        if not self.api_key:
+            raise RuntimeError("GOOGLE_API_KEY ausente. Defina a variável de ambiente antes de usar o backend Google.")
+        if genai is None:
+            raise RuntimeError("Biblioteca google-generativeai não instalada. Execute: pip install google-generativeai")
+        genai.configure(api_key=self.api_key)
+        # 'text' já deve ser um prompt completo construído pelo pipeline
+        prompt = text
+        # Prints úteis para auditoria: mostra modelo e trecho inicial do prompt
+        print(f"[GOOGLE] modelo={self.model}")
+        try:
+            preview = prompt
+            print("[GOOGLE] Prompt (primeiros 800 chars):\n" + preview)
+        except Exception:
+            pass
+        candidates = [self.model, "gemini-1.5-pro", "gemini-1.0-pro"]
+        last_err: Exception | None = None
+        for name in candidates:
+            model = genai.GenerativeModel(name)
+            try:
+                response = model.generate_content(prompt)
+                break
+            except Exception as e:
+                last_err = e
+                response = None
+        if response is None:
+            try:
+                available = list(genai.list_models())
+                prefers = [m for m in available if hasattr(m, "supported_generation_methods") and "generateContent" in getattr(m, "supported_generation_methods", [])]
+                ordered = sorted(prefers, key=lambda m: ("1.5" not in m.name, "flash" not in m.name, "pro" not in m.name))
+                chosen = ordered[0] if ordered else None
+                if not chosen:
+                    raise RuntimeError("Nenhum modelo com generateContent disponível na conta.")
+                model = genai.GenerativeModel(chosen.name)
+                response = model.generate_content(prompt)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Falha em todos os modelos Google ({', '.join(candidates)}), e seleção automática falhou: {e}"
+                ) from (last_err or e)
+        if hasattr(response, "text") and response.text:
+            return response.text.strip()
+        parts = []
+        for c in getattr(response, "candidates", []):
+            for ct in getattr(c, "content", []).parts:
+                if hasattr(ct, "text"):
+                    parts.append(ct.text)
+        return "\n".join(parts).strip() or text
+

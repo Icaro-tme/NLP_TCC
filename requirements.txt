@@ -5,3 +5,10 @@ sentence-transformers
 torch
 sacrebleu
 sentencepiece
+numpy
+google-generativeai
+accelerate
+fastapi
+uvicorn
+python-dotenv
+spacy

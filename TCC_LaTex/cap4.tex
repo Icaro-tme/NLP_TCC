@@ -1,0 +1,256 @@
+\chapter{Proposta}
+
+Neste capítulo, apresentaremos a proposta de arquitetura para o sistema de tradução automática de documentos jurídicos. A proposta inclui desde a coleta de dados até o treinamento e avaliação do modelo de tradução baseado em Processamento de Linguagem Natural (NLP).
+
+\section{Arquitetura do projeto}
+
+\subsection{Coleta de dados}
+
+Para este projeto, será utilizado um conjunto de dados proveniente de uma coletânea de documentos legislativos do estado do Espírito Santo, incluindo metadados que se referem a como o doumento seria organizado de forma ontológica, ou seja, características que se tornam relevantes para a avaliação do contexto do arquivo. Portanto, arquivos contêm anotações e informações que facilitam a organização e catalogação dos textos, classificando-os em categorias que englobam áreas temáticas e conceitos jurídicos específicos. Essa catalogação ontológica auxiliará o modelo a reconhecer contextos, ajudando na interpretação de termos com significados complexos e específicos ao meio legislativo.
+
+A coleta de dados será realizada por meio de uma API conectada a essa base legislativa, permitindo o acesso a uma variedade de documentos e metadados associados. Esse processo possibilita a criação de uma base de dados robusta e variada, que reflete as diferentes nuances e terminologias do direito brasileiro.
+
+\subsection{Pré-processamento dos dados}
+
+Os documentos coletados passarão por uma fase de pré-processamento, onde serão normalizados e organizados para o treinamento do modelo. Esse pré-processamento inclui:
+\begin{itemize}
+    \item \textbf{Limpeza de texto}: remoção de caracteres especiais e formatação inadequada.
+    \item \textbf{Tokenização dos documentos}: transformação do texto em uma sequência de tokens que o modelo pode processar.
+    \item \textbf{Inserção dos metadados em RDF}: integração ao triple store para ajudar na contextualização semântica durante o treinamento.
+\end{itemize}
+
+\subsection{Modelagem e treinamento do modelo de tradução}
+
+Para o treinamento do modelo de tradução, será utilizada uma arquitetura de aprendizado profundo com técnicas avançadas de NLP, tais como \textit{embeddings} (representações do texto em formato de objeto) e Modelos Transformadores (TM), comumente aplicados em tarefas de tradução automática (preferencialmente, modelos pré-treinados com capacidade de processar traduções de uso coloquial). A estrutura principal envolve:
+
+\begin{itemize}
+    \item \textbf{\textit{Embedding Layer}}: onde as palavras dos documentos legislativos serão convertidas em vetores numéricos, permitindo ao modelo identificar similaridades entre termos e contextos semânticos.
+    \item \textbf{\textit{Transformer Model}}: estrutura que permite capturar dependências contextuais em grandes volumes de texto, particularmente útil para interpretar frases complexas e jargões técnicos do meio jurídico.
+\end{itemize}
+
+Durante o treinamento, o modelo será alimentado com amostras de documentos e suas traduções de referência para ajustar seus parâmetros e melhorar sua precisão.
+
+\subsection{Avaliação do modelo}
+
+Após o treinamento, o modelo será submetido a uma fase de avaliação. Utilizaremos tanto métricas quantitativas, como BLEU, quanto avaliações qualitativas conduzidas por profissionais da área de advocacia, que realizarão uma comparação entre a tradução feita pelo modelo e traduções obtidas por outras ferramentas, como o Google Translate. A avaliação qualitativa permitirá medir a adequação da tradução em termos de precisão e preservação das nuances culturais e legais.
+
+\section{Avaliação qualitativa com especialistas}
+
+Para garantir a eficácia do modelo em capturar as nuances jurídicas, uma fase de avaliação qualitativa será realizada com profissionais de direito. Nessa fase, os avaliadores receberão as traduções do modelo proposto, juntamente com traduções de sistemas de tradução automatizada amplamente utilizados, como \textit{Google Translate}, para avaliar a qualidade e adequação da tradução em um contexto real. Essa análise comparativa permitirá identificar pontos fortes e limitações do modelo, oferecendo também uma comparação para aprimoramentos futuros.
+
+A proposta, como apresentada, visa desenvolver uma solução que vá além da tradução literal, focando na compreensão semântica e contextual das traduções, essenciais para uma aplicação prática no meio jurídico.
+
+\section{Visões da arquitetura e diagramas}
+
+Nesta seção, apresentaremos as visões da arquitetura do sistema e os diagramas na linguagem visual \textit{Unified Modeling Language} (UML). A UML é uma linguagem padrão para especificação, visualização e documentação de sistemas de software, especialmente útil em projetos.
+
+\subsection{Visão de requisitos}
+
+Esta seção descreve os principais requisitos que impactam a arquitetura da aplicação, como a \textit{Application Programming Interface} (API), linguagens de programação, \textit{Frameworks} (estruturas) para o algoritmo de \textit{Machine Learning} (ML) e bibliotecas.
+
+\section*{Requisitos}
+
+\begin{itemize}
+    \item \textbf{Linguagem}: A aplicação será desenvolvida em Python, devido ao suporte extenso para bibliotecas de NLP, e ferramentas de aprendizado de máquina com TensorFlow e PyTorch.
+    \item \textbf{Plataforma}: A API será implementada sobre uma plataforma de servidor de aplicações como o Flask, facilitando o desenvolvimento de \textit{endpoints} RESTful para coleta de dados e consulta ao modelo de tradução.
+    \item \textbf{Persistência}: Será adotada uma base de dados relacional (MySQL) para armazenamento de metadados dos documentos e um banco de dados NoSQL (MongoDB) para armazenamento dos documentos em si.
+\end{itemize}
+
+
+% \begin{table}[h!]
+% \centering
+% \caption{Requisitos}
+% \begin{tabular}{|l|p{13cm}|}
+% \hline
+% \textbf{Requisito} & \textbf{Descrição} \\ \hline
+% Linguagem & A aplicação será desenvolvida em Python, devido ao suporte extenso para bibliotecas de NLP, e ferramentas de aprendizado de máquina com TensorFlow e PyTorch . \\ \hline
+% Plataforma & A API será implementada sobre uma plataforma de servidor de aplicações como o Flask, facilitando o desenvolvimento de \textit{endpoints} RESTful para coleta de dados e consulta ao modelo de tradução. \\ \hline
+% Persistência & Será adotada uma base de dados relacional (MySQL) para armazenamento de metadados dos documentos e um banco de dados NoSQL (MongoDB) para armazenamento dos documentos em si. \\ \hline
+% % Internacionalização & A aplicação poderá ser projetada para suportar tradução entre diferentes idiomas, incluindo configurações de internacionalização no processamento e na exibição de dados. \\ \hline 
+% %achei meio arriscado colocar isso agora
+% \end{tabular}
+% \label{tab:requisitos}
+% \end{table}
+
+\subsection{Visão de implantação}
+
+O diagrama de implantação (\figurename~\ref{fig:implantacao}) irá mostrar como os componentes físicos do sistema estão conectados e implantados no ambiente. Este diagrama incluirá a API, o serviço de NLP, o banco de dados para persistência, a API do Google Translate para medida de comparação com uma MT comum, e a interface de avaliação.
+\begin{figure}[ht]
+\begin{tikzpicture}
+
+    \node[draw, rectangle, minimum width=3cm, minimum height=2cm, fill=blue!10] (client) at (0,0) {Interface de Avaliação};
+
+    \node[draw, rectangle, minimum width=2cm, minimum height=2cm, right=of client, fill=blue!10, align=center] (human) {Traduções\\por Especialistas};
+    
+    \node[draw, rectangle, minimum width=3cm, minimum height=2cm, below=of client, fill=green!10] (eval_service) {Serviço de Avaliação};
+    
+    \node[draw, rectangle, minimum width=3cm, minimum height=2cm, below=of eval_service, fill=yellow!10] (db) {Banco de Dados de Traduções};
+    
+    \node[draw, rectangle, minimum width=3cm, minimum height=1cm, fill=red!10] (nlp_service) at (4,-9) {Serviço de Tradução NLP};
+    
+    \node[draw, rectangle, minimum width=3cm, minimum height=1cm, fill=purple!10] (google_translate) at (-4,-9) {API Google Translate};
+    
+    \node[draw, rectangle, minimum width=3cm, minimum height=2cm, below=of db, fill=orange!10] (api) at (0,-10) {API de Documentos Jurídicos};
+    
+    % Connections
+    %\filldraw [gray] (0,-11) circle (9pt);
+    
+    \draw[->] (client) -- (eval_service) node[midway, right] {Solicitação de Avaliação};
+    \draw[->] (eval_service) -- (db) node[midway, right] {Consulta a Traduções};
+    \draw[->] (nlp_service.south) -- (api) node[midway, right] {Documentos Jurídicos};
+    \draw[->] (google_translate.south) -- (api) node[midway, left] {Documentos Jurídicos};
+    \draw[->] (db.east) -- (4,-6) -- (nlp_service.north) node[midway, right] {Tradução NLP};
+    \draw[->] (human.south)  .. controls (4,-4) and (9,-6) .. (nlp_service.east) node[pos=0.2, above right] {Tradução Humana};
+    \draw[->] (db.west) -- (-4,-6) -- (google_translate.north) node[midway, left] {Tradução MT};
+\end{tikzpicture}
+\caption{Diagrama de Implantação do Sistema de Tradução Automática}
+\label{fig:implantacao}
+\end{figure}
+\clearpage
+
+\subsection{Visão lógica}
+
+Esse diagrama (\figurename~\ref{fig:classes}) representa os componentes internos e suas responsabilidades, abordando a estrutura organizacional e as interdependências entre os subsistemas principais: o Serviço de NLP, o Serviço de Avaliação, e os Bancos de Dados.
+
+\begin{figure}[h]
+\begin{tikzpicture}
+\begin{umlpackage}[x=0,y=0]{Serviço de NLP}
+\umlclass{Pre-processador}{
+    traducoesProvidas
+}{
+    conversaoEmDataset()
+}
+\umlclass[y=-4]{Algoritmo de ML}{
+    datasetsProvidos
+}{
+    treinamentoEmDataset()
+}
+
+\end{umlpackage}
+\begin{umlpackage}[x=8,y=-2]{Serviço de Avaliação}
+    \umlclass{Avaliador}{
+        avaliacaoId \\
+        traducaoId \\ 
+        notaCalculada \\ 
+        tipoAvaliacao \\ 
+    }{
+        avaliarTraducao() \\ 
+        calcularScoreBLEU() 
+    }
+\end{umlpackage}
+\begin{umlpackage}[x=-1,y=-11]{Bancos de Dados}
+\begin{umlpackage}{MySQL}
+    \umlclass{Documentos}{
+        documentId\\ 
+        mongoId\
+    }{
+    }
+    
+    \umlclass[x=5]{Metadados}{
+        metadadoId \\ 
+        documentId \\ 
+        chaveMetadado \\ 
+        valorMetadado
+    }{
+    }
+
+    \umlclass[y=-5]{Traducoes}{
+        traducaoId \\ 
+        documentId \\ 
+        tipoTraducao \\ 
+        scoreBleu \\ 
+        mongoId
+    }{
+    }
+
+    \umlclass[x=5, y=-5]{AvaliacoesHumanas}{
+        avaliacaoId\\ 
+        traducaoId\\ 
+        avaliadorId\\ 
+        nota  \\ 
+    }{
+    }
+
+    \umlassoc{Documentos}{Metadados} 
+    \umlassoc{Documentos}{Traducoes} 
+    \umlassoc{Traducoes}{AvaliacoesHumanas}
+
+\end{umlpackage}
+
+\begin{umlpackage}[x=10]{MongoDB}
+    \umlclass{Documentos}{
+        \_id  \\ 
+        conteudoDocumento  \\ 
+    }{
+
+    }
+
+    \umlclass[y=-5]{Traducoes}{
+        \_id \\ 
+        conteudoTraduzido \\ 
+        idiomaOrigem\\ 
+        idiomaDestino\\ 
+        tipoTraducao
+    }{
+
+    }
+
+\end{umlpackage}
+\end{umlpackage}
+
+
+%\umlassoc[geometry=-|-, arg1=tata, mult1=*, pos1=0.3, arg2=toto, mult2=1, pos2=2.9, align2=left]{C}{B}
+%\umlunicompo[geometry=-|, arg=titi, mult=*, pos=1.7, stereo=vector]{D}{C}
+%\umlimport[geometry=|-, anchors=90 and 50, name=import]{sp2}{sp1}
+%\umlaggreg[arg=tutu, mult=1, pos=0.8, angle1=30, angle2=60, loopsize=2cm]{D}{D}
+%\umlinherit[geometry=-|]{D}{B}
+%\umlnote[x=2.5,y=-6, width=3cm]{B}{Je suis une note qui concerne la classe B}
+
+
+\umlassoc[arg1= Trata dados]{Pre-processador}{Algoritmo de ML}
+\umlassoc[arg1= Persistencia]{Serviço de NLP}{Bancos de Dados}
+\umlassoc[arg1= Persistencia]{Serviço de Avaliação}{Bancos de Dados}
+
+%refazer isso em um UML online, fazer isso em latex foi um completo pesadelo
+
+
+\end{tikzpicture}
+\caption{Diagrama de Classes do Sistema de Tradução Automática}
+\label{fig:classes}
+\end{figure}
+
+
+
+
+% \begin{figure}
+% \begin{tikzpicture}
+% \begin{umlsystem}[x=4, fill=red!10]{Sistema de Tradução Automática em NLP} 
+% \umlusecase{use case1} 
+% \umlusecase[y=-2]{use case2} 
+% \umlusecase[y=-4]{use case3} 
+% \umlusecase[x=4, y=-2, width=1.5cm]{use case4 on 2 lines} 
+% \umlusecase[x=6, fill=green!20]{use case5} 
+% \umlusecase[x=6, y=-4]{use case6} 
+% \end{umlsystem} 
+ 
+% \umlactor{user} 
+% \umlactor[y=-3]{subuser} 
+% \umlactor[x=14, y=-1.5]{admin}
+
+   
+% \umlinherit{subuser}{user} 
+% \umlassoc{user}{usecase-1} 
+% \umlassoc{subuser}{usecase-2} 
+% \umlassoc{subuser}{usecase-3} 
+% \umlassoc{admin}{usecase-5} 
+% \umlassoc{admin}{usecase-6} 
+% \umlinherit{usecase-2}{usecase-1} 
+% \umlVHextend{usecase-5}{usecase-4} 
+% \umlinclude[name=incl]{usecase-3}{usecase-4} 
+ 
+% \end{tikzpicture}
+% \caption{Diagrama de Casos de Uso}
+% \label{fig:casos_uso}
+% \end{figure}
+
+

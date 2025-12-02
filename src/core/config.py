@@ -1,0 +1,66 @@
+"""Configuration dataclasses centralizing runtime options for the MVP pipeline."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Optional
+
+
+@dataclass(frozen=True)
+class TranslationConfig:
+    """Low-level configuration for machine translation execution."""
+
+    model_name: str = "facebook/m2m100_418M"
+    device: str = "auto"  # "auto", "cuda", "cpu"
+    fp16: bool = False
+    max_length: int = 9999999
+    batch_size: int = 1
+    use_device_map: bool = True
+    trust_remote_code: bool = False
+    backend: str = "google" 
+    strategy: str = "node"  # node | window | doc | doc-sintatico
+    short_node_merge_chars: int = 10  # threshold for doc-level merging heuristic
+    require_spacy_for_chunking: bool = True
+
+
+@dataclass(frozen=True)
+class PathsConfig:
+    """Absolute or project-relative paths used across the pipeline."""
+
+    project_root: Path
+    data_dir: Path
+    db_path: Path
+    glossario_dir: Path
+    corpus_dir: Path
+    results_dir: Path
+
+
+@dataclass(frozen=True)
+class PipelineConfig:
+    """High-level aggregation of all configuration knobs for the MVP."""
+
+    translation: TranslationConfig = field(default_factory=TranslationConfig)
+    paths: PathsConfig | None = None
+    source_lang: str = "pt"
+    target_langs: List[str] = field(default_factory=lambda: ["en", "es"])
+    seed: Optional[int] = 42
+    rag: "RagConfig" | None = None
+
+
+@dataclass(frozen=True)
+class RagConfig:
+    """Configuração para módulo RAG.
+
+    top_k: número de trechos recuperados para compor contexto.
+    max_context_chars: limite de caracteres concatenados enviados ao prompt para evitar estouro.
+    index_dir: diretório onde armazenamos embeddings/índice persistente.
+    model: modelo de embeddings SentenceTransformer.
+    enabled: atalho booleano; se False ignora RAG mesmo se top_k>0.
+    """
+
+    top_k: int = 3
+    max_context_chars: int = 5000
+    index_dir: Path | None = None
+    model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    enabled: bool = True
