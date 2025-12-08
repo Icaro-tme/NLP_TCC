@@ -199,14 +199,11 @@ class Retriever:
             return True
         if doc_type == "corpus":
             language = metadata.get("language")
-            allowed: set[str] | None = None
-            if source_lang and target_lang:
-                allowed = {source_lang, target_lang}
-            elif source_lang:
-                allowed = {source_lang}
-            elif target_lang:
-                allowed = {target_lang}
-            if allowed is None:
-                return True
-            return language in allowed
+            # Corpus deve estar no idioma ALVO (para onde estamos traduzindo)
+            # Glossário usa source→target, mas corpus é texto de exemplo no idioma final
+            if target_lang:
+                return language == target_lang
+            if source_lang:
+                return language == source_lang
+            return True
         return True

@@ -1,0 +1,34 @@
+term_src|lang_src|term_tgt|lang_tgt|notes
+usucapião|pt|adverse possession|en|Tradução humana consistente - NUNCA usar "usucaption"
+usucapião extrajudicial|pt|extrajudicial adverse possession|en|Procedimento administrativo - confirmado no texto humano
+averbação de usucapião|pt|recording of adverse possession|en|Humano usa "recording" (linha: "administrative request to record")
+averbação|pt|annotation|en|Contexto: "annotation of adverse possession" no dispositivo
+Oficial do Cartório de Registro de Imóveis|pt|Real Estate Registry Officer|en|Exato como no texto humano
+autoridade coatora|pt|challenged authority|en|Humano usa "challenged authority" - NUNCA "coercive authority"
+direito líquido e certo|pt|clear and certain right|en|Confirmado no texto humano com glosa em PT
+posse mansa, pacífica e ininterrupta|pt|peaceful, uninterrupted possession|en|Confirmado: "peaceful, uninterrupted possession"
+ânimo de dono|pt|intent to possess as owner|en|Texto humano: "requisite intent to possess as owner"
+animus domini|pt|animus domini|en|Mantém latim com glosa: "(animus domini)"
+arts. 1.238 e seguintes|pt|Articles 1,238 et seq.|en|Formato exato do texto humano com vírgula
+art. 5.º, inciso LXIX|pt|Article 5, LXIX|en|Sem "inciso" em inglês, apenas número romano
+Lei de Registros Públicos|pt|Public Records Law|en|Confirmado: "Public Records Law (Lei n.o 6.015/1973)"
+atos registrários|pt|registry acts|en|Confirmado: "registry acts necessary to regularize title"
+reanálise do pedido administrativo|pt|reexamine the administrative request|en|Humano usa "reexamine" - não "re-analysis"
+verificações formais e técnicas|pt|technical and formal verifications|en|Ordem invertida no texto humano
+regularização judicial|pt|judicial regularization|en|Confirmado: "if judicial regularization proceedings is necessary"
+responsabilização administrativa|pt|administrative liability|en|Confirmado: "under penalty of administrative liability"
+conceder parcialmente a segurança|pt|GRANT THE PETITION IN PART|en|Formato EXATO com maiúsculas
+quadro registral|pt|title record|en|Confirmado: "incorrect title record"
+sem prejuízo de|pt|without prejudice to|en|Confirmado: "without prejudice to any subsequent"
+prova documental inequívoca|pt|documentary evidence incontrovertibly|en|Confirmado com advérbio
+planta|pt|site plan|en|Confirmado: "site plan, written witness statements"
+testemunhos escritos|pt|written witness statements|en|Confirmado na lista de documentos
+comprovantes de pagamento de tributos|pt|tax payment records|en|Confirmado na lista de documentos
+ausência de contestação efetiva por terceiros|pt|no effective third-party challenge|en|Confirmado exatamente assim
+usucapião extraordinária|pt|extraordinary adverse possession|en|Confirmado: "extraordinary adverse possession"
+procedimento previsto na Lei|pt|formalities provided by... Law|en|Humano usa "formalities provided by"
+diligência notarial ou judicial|pt|notarial or judicial steps|en|Confirmado: "which may require notarial or judicial steps"
+promova os atos administrativos exigíveis|pt|carry out the necessary administrative acts|en|Confirmado: "to carry out the necessary administrative acts"
+abstendo-se de praticar ato registrário|pt|refraining from any registrarial act|en|Confirmado com "registrarial"
+ulterior pronunciamento judicial definitivo|pt|subsequent judicial adjudication|en|Confirmado: "any subsequent judicial adjudication"
+reconhecimento da usucapião|pt|legal recognition of adverse possession|en|Humano adiciona "legal" antes de "recognition"

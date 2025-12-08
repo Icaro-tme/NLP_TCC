@@ -30,8 +30,8 @@ class EvaluationController(BaseController):
             variante: str = Form("adapted"),
             arquivo: UploadFile = File(...),
         ):
-            if variante not in ("baseline", "adapted"):
-                raise HTTPException(status_code=400, detail="Variante inválida (use baseline ou adapted).")
+            if variante not in ("baseline", "adapted", "crude"):
+                raise HTTPException(status_code=400, detail="Variante inválida (use baseline, adapted ou crude).")
             try:
                 content_bytes = await arquivo.read()
                 human_html = content_bytes.decode("utf-8", errors="ignore")

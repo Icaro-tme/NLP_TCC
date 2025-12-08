@@ -68,7 +68,10 @@ class Database:
 
     def connect(self) -> sqlite3.Connection:
         if self.connection is None:
-            self.connection = sqlite3.connect(self.db_path)
+            self.connection = sqlite3.connect(
+                self.db_path, 
+                check_same_thread=False  # Permite uso em múltiplas threads (FastAPI/uvicorn)
+            )
             self.connection.row_factory = sqlite3.Row
         return self.connection
 
@@ -87,8 +90,8 @@ class Database:
     @contextmanager
     def cursor(self) -> Iterator[sqlite3.Cursor]:
         conn = self.connect()
+        cursor = conn.cursor()
         try:
-            cursor = conn.cursor()
             yield cursor
             conn.commit()
         finally:
