@@ -1,14 +1,28 @@
-beautifulsoup4
-lxml
-transformers
-sentence-transformers
-torch
-sacrebleu
-sentencepiece
-numpy
-google-generativeai
-accelerate
-fastapi
-uvicorn
-python-dotenv
-spacy
+#instalar o torch especificamente conforme a GPU e CUDA disponível, meu: "pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118"
+
+# Core ML stack - torch já instalado com: pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
+numpy>=1.26,<2.0
+transformers==4.35.2
+sentence-transformers==2.7.0
+sentencepiece==0.1.99
+huggingface-hub>=0.20.0
+
+# NLP & evaluation
+spacy==3.7.2
+sacrebleu==2.5.0
+jiwer==3.0.3
+
+# Web framework
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.6
+
+# Google AI
+google-generativeai==0.8.5
+accelerate==0.26.1
+
+# Parsing & utilities
+beautifulsoup4==4.12.3
+lxml==5.1.0
+python-dotenv==1.0.1
+requests==2.31.0
