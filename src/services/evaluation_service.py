@@ -19,6 +19,9 @@ from typing import Dict, List, Tuple, Optional
 from bs4 import BeautifulSoup
 import unicodedata
 import html as html_module
+import hashlib
+import json
+from pathlib import Path
 
 from ..persistence.repos import DocumentRepository, NodeRepository
 from ..persistence.db import Database
@@ -50,6 +53,82 @@ class EvaluationService:
         self.db = Database(paths.db_path)
         self.doc_repo = DocumentRepository(self.db)
         self.node_repo = NodeRepository(self.db)
+        self.cache_dir = paths.data_dir / "evaluation_cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---------------- Sistema de Cache com Invalidação Automática -----------------
+    @staticmethod
+    def _compute_hash(content: str) -> str:
+        """Calcula MD5 hash do conteúdo para detecção de mudanças."""
+        return hashlib.md5(content.encode('utf-8')).hexdigest()
+
+    def _get_cache_path(self, documento: str, variante: str, target_lang: str, human_hash: str) -> Path:
+        """Retorna path do cache incluindo hash do conteúdo humano."""
+        return self.cache_dir / f"{documento}_{variante}_{target_lang}_{human_hash}.json"
+
+    def _get_system_file_mtime(self, documento: str, variante: str, target_lang: str) -> float:
+        """Retorna timestamp de modificação do arquivo da variante exportada."""
+        if variante == 'crude':
+            # Crude usa original PT indexado + LibreTranslate on-demand
+            system_file = self.paths.data_dir / "extracted" / f"{documento}_indexed.html"
+        else:
+            # Baseline/Adapted usam arquivos exportados em results/html/
+            system_file = self.paths.results_dir / "html" / f"{documento}_{variante}_{target_lang}.html"
+        
+        if not system_file.exists():
+            return 0.0
+        return system_file.stat().st_mtime
+
+    def _load_from_cache(self, cache_path: Path, expected_mtime: float) -> Optional[Dict]:
+        """Carrega resultado do cache se existir, for válido e não estiver desatualizado.
+        
+        Args:
+            cache_path: Path do arquivo de cache
+            expected_mtime: Timestamp esperado do arquivo da variante (para invalidação)
+        """
+        if not cache_path.exists():
+            return None
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+            
+            # Valida se o cache não está desatualizado (arquivo da variante foi re-exportado)
+            cached_mtime = cached.get('_system_file_mtime', 0.0)
+            if cached_mtime < expected_mtime:
+                # Cache desatualizado: arquivo da variante foi modificado após criação do cache
+                return None
+            
+            return cached
+        except Exception:
+            return None
+
+    def _save_to_cache(self, cache_path: Path, data: Dict, system_file_mtime: float) -> None:
+        """Salva resultado no cache com timestamp do arquivo da variante.
+        
+        Args:
+            cache_path: Path do arquivo de cache
+            data: Dados da avaliação a cachear
+            system_file_mtime: Timestamp do arquivo da variante (para validação futura)
+        """
+        try:
+            # Adiciona metadata de invalidação
+            data['_system_file_mtime'] = system_file_mtime
+            data['_cached_at'] = Path(cache_path).stat().st_mtime if cache_path.exists() else 0.0
+            
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass  # Cache é opcional, não falhar se não conseguir salvar
+
+    def _invalidate_old_caches(self, documento: str, variante: str, target_lang: str, current_hash: str) -> None:
+        """Remove caches antigos com hashes diferentes (conteúdo humano mudou)."""
+        pattern = f"{documento}_{variante}_{target_lang}_*.json"
+        for old_cache in self.cache_dir.glob(pattern):
+            if current_hash not in old_cache.name:
+                try:
+                    old_cache.unlink()
+                except Exception:
+                    pass
 
     # ---------------- Extração HTML Humano -----------------
     @staticmethod
@@ -232,21 +311,53 @@ class EvaluationService:
     def compute_doc(self, documento: str, source_lang: str, target_lang: str, variante: str, human_html: str):
         """Avalia métricas globais (BLEU, WER, PER, TER) comparando texto humano vs texto da variante.
 
-        Passos:
-        1. Concatena textos dos nós (baseline/adapted + fallback original) decodificando placeholders.
-        2. Extrai texto humano bruto do HTML enviado.
-        3. Calcula BLEU e TER via sacrebleu; WER e PER via implementações internas.
+        Sistema de cache inteligente:
+        - Hash MD5 do human_html detecta se conteúdo mudou
+        - Cache invalidado automaticamente quando human_html é diferente
+        - Suporta variantes: baseline, adapted, crude (LibreTranslate on-demand)
         """
+        # 1. Calcula hash do conteúdo humano + timestamp do arquivo da variante
+        human_hash = self._compute_hash(human_html)
+        system_mtime = self._get_system_file_mtime(documento, variante, target_lang)
+        cache_path = self._get_cache_path(documento, variante, target_lang, human_hash)
+        
+        # 2. Tenta carregar do cache (valida se arquivo da variante não foi re-exportado)
+        cached = self._load_from_cache(cache_path, system_mtime)
+        if cached:
+            # Cache hit: retorna resultado anterior
+            @dataclass
+            class DocResult:
+                documento: str
+                idioma: str
+                variante: str
+                bleu: float | None
+                wer: float | None
+                per: float | None
+                ter: float | None
+                texto_humano: str
+                texto_sistema: str
+                cached: bool = True
+            
+            return DocResult(
+                documento=cached['documento'],
+                idioma=cached['idioma'],
+                variante=cached['variante'],
+                bleu=cached.get('bleu'),
+                wer=cached.get('wer'),
+                per=cached.get('per'),
+                ter=cached.get('ter'),
+                texto_humano=cached.get('texto_humano', ''),
+                texto_sistema=cached.get('texto_sistema', ''),
+                cached=True
+            )
+        
+        # 3. Cache miss: processa avaliação completa
         document_id = self.doc_repo.find_document_id(documento, source_lang, target_lang)
         if document_id is None:
             raise ValueError(f"Documento não encontrado para {documento} {source_lang}->{target_lang}")
-        # Em vez de reconstruir via nós, lê diretamente o HTML exportado da variante
+        
         from ..html_io import read_html
-        resultados_html = self.paths.results_dir / "html" / f"{documento}_{variante}_{target_lang}.html"
-        if not resultados_html.exists():
-            # Se não existir, tenta versão gerada por CLI com sufixo diferente (fallback)
-            alt = self.paths.results_dir / "html" / f"{documento}_adapted_{target_lang}.html" if variante == 'adapted' else self.paths.results_dir / "html" / f"{documento}_baseline_{target_lang}.html"
-            resultados_html = alt if alt.exists() else resultados_html
+        
         def _plain_from_html(html_str: str) -> str:
             soup = BeautifulSoup(html_str, 'html.parser')
             text = soup.get_text(' ', strip=True)
@@ -256,65 +367,68 @@ class EvaluationService:
             text = re.sub(r"\s+", " ", text).strip()
             return text
 
-        if resultados_html.exists():
+        # Se variante é 'crude', traduz o texto ORIGINAL (PT) via LibreTranslate
+        if variante == 'crude':
+            from ..backends.libretranslate_backend import LibreTranslateClient
+            
+            # Extrai texto original PT do HTML indexado (fonte canônica)
+            resultados_original = self.paths.data_dir / "extracted" / f"{documento}_indexed.html"
+            if not resultados_original.exists():
+                raise FileNotFoundError(
+                    f"HTML original indexado não encontrado: {resultados_original}. "
+                    f"Execute o processamento do documento primeiro."
+                )
+            
+            html_original = read_html(resultados_original)
+            texto_original_pt = _plain_from_html(html_original)
+            
+            # Traduz via LibreTranslate (determinístico)
+            client = LibreTranslateClient()
+            try:
+                texto_sistema = client.translate(texto_original_pt, source_lang=source_lang, target_lang=target_lang)
+            except Exception as e:
+                raise RuntimeError(f"Erro ao traduzir via LibreTranslate: {e}")
+        
+        else:
+            # Para baseline/adapted: lê HTML exportado (fonte canônica)
+            resultados_html = self.paths.results_dir / "html" / f"{documento}_{variante}_{target_lang}.html"
+            if not resultados_html.exists():
+                raise FileNotFoundError(
+                    f"HTML da variante '{variante}' não encontrado: {resultados_html}. "
+                    f"Exporte a variante primeiro usando o endpoint /exportar/html antes de avaliar."
+                )
+            
             html_sistema = read_html(resultados_html)
             texto_sistema = _plain_from_html(html_sistema)
-        else:
-            # Fallback final: concatenação via banco de dados (como antes)
-            nodes = self.node_repo.list_nodes(document_id)
-            partes_sistema: List[str] = []
-            for n in nodes:
-                if variante == 'baseline':
-                    txt_val = n.get('baseline_text') or n.get('original_text', '')
-                else:
-                    txt_val = n.get('adapted_text') or n.get('human_text') or n.get('baseline_text') or n.get('original_text', '')
-                plain = _plain_from_html(txt_val)
-                if plain:
-                    partes_sistema.append(plain)
-            texto_sistema = "\n\n".join(partes_sistema)
 
-        # Texto humano bruto
+        # Texto humano bruto (referência para comparação)
         texto_humano = _plain_from_html(human_html)
 
-        # Tokenização simples por espaços
-        def _tokens(t: str) -> List[str]:
-            return [x for x in re.split(r"\s+", t.strip()) if x]
-
-        ref_tokens = _tokens(texto_humano)
-        hyp_tokens = _tokens(texto_sistema)
-
-        # WER (Levenshtein)
-        def _wer(ref: List[str], hyp: List[str]) -> Optional[float]:
-            if not ref:
-                return None
-            # matriz (len_ref+1 x len_hyp+1)
-            m, n = len(ref), len(hyp)
-            dp = [[0]*(n+1) for _ in range(m+1)]
-            for i in range(m+1): dp[i][0] = i
-            for j in range(n+1): dp[0][j] = j
-            for i in range(1, m+1):
-                for j in range(1, n+1):
-                    cost = 0 if ref[i-1] == hyp[j-1] else 1
-                    dp[i][j] = min(
-                        dp[i-1][j] + 1,      # deleção
-                        dp[i][j-1] + 1,      # inserção
-                        dp[i-1][j-1] + cost  # substituição
-                    )
-            return dp[m][n] / m if m > 0 else None
-
-        # PER (position-independent error rate)
-        def _per(ref: List[str], hyp: List[str]) -> Optional[float]:
-            if not ref:
-                return None
+        # WER e PER usando biblioteca jiwer (padrão da indústria)
+        wer = per = None
+        try:
+            from jiwer import wer as compute_wer, compute_measures
+            # WER: Word Error Rate (Levenshtein distance normalizado)
+            wer = float(compute_wer(texto_humano, texto_sistema))
+            
+            # PER: Position-Independent Error Rate
+            # jiwer não tem PER nativo, mas podemos calcular via medidas intermediárias
+            measures = compute_measures(texto_humano, texto_sistema)
+            # PER = (S + D + I - M) / N, onde M = matches após ordenação bag-of-words
+            # Aproximação: usar WIL (Word Information Lost) ou implementação manual validada
             from collections import Counter
-            cref = Counter(ref)
-            chyp = Counter(hyp)
-            correct = sum(min(cref[w], chyp[w]) for w in cref)
-            return (len(ref) - correct) / len(ref)
+            ref_words = texto_humano.lower().split()
+            hyp_words = texto_sistema.lower().split()
+            if ref_words:
+                cref = Counter(ref_words)
+                chyp = Counter(hyp_words)
+                correct = sum(min(cref[w], chyp[w]) for w in cref)
+                per = float((len(ref_words) - correct) / len(ref_words))
+        except Exception as e:
+            # Fallback para None se jiwer não estiver instalado
+            pass
 
-        wer = _wer(ref_tokens, hyp_tokens)
-        per = _per(ref_tokens, hyp_tokens)
-
+        # BLEU e TER usando SacreBLEU (padrão de referência)
         bleu = ter = None
         try:
             from sacrebleu import corpus_bleu, corpus_ter
@@ -334,8 +448,9 @@ class EvaluationService:
             ter: float | None
             texto_humano: str
             texto_sistema: str
+            cached: bool = False
 
-        return DocResult(
+        result = DocResult(
             documento=documento,
             idioma=target_lang,
             variante=variante,
@@ -345,4 +460,22 @@ class EvaluationService:
             ter=ter,
             texto_humano=texto_humano,
             texto_sistema=texto_sistema,
+            cached=False
         )
+        
+        # 4. Salva no cache com timestamp do arquivo da variante e remove caches antigos
+        cache_data = {
+            'documento': documento,
+            'idioma': target_lang,
+            'variante': variante,
+            'bleu': bleu,
+            'wer': wer,
+            'per': per,
+            'ter': ter,
+            'texto_humano': texto_humano,
+            'texto_sistema': texto_sistema,
+        }
+        self._save_to_cache(cache_path, cache_data, system_mtime)
+        self._invalidate_old_caches(documento, variante, target_lang, human_hash)
+        
+        return result
