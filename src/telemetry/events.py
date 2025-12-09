@@ -176,3 +176,15 @@ class WindowPromptEvent(TranslationEvent):
     source_lang: str
     target_lang: str
     prompt: str
+
+
+@dataclass
+class PlaceholderErrorEvent(TranslationEvent):
+    doc_name: str | None
+    document_id: int | None
+    node_id: int | None
+    node_path: str | None
+    mode: str
+    target_lang: str | None
+    message: str
+    translated_excerpt: str | None = None

@@ -4,6 +4,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+import threading
 
 
 SCHEMA_STATEMENTS = (
@@ -56,6 +57,10 @@ SCHEMA_STATEMENTS = (
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_glossary_term_unique
+    ON glossary_entries(term_src COLLATE NOCASE, lang_src, lang_tgt);
+    """,
 )
 
 
@@ -65,14 +70,24 @@ class Database:
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self.connection: sqlite3.Connection | None = None
+        self._lock = threading.RLock()
 
     def connect(self) -> sqlite3.Connection:
         if self.connection is None:
             self.connection = sqlite3.connect(
-                self.db_path, 
-                check_same_thread=False  # Permite uso em múltiplas threads (FastAPI/uvicorn)
+                self.db_path,
+                check_same_thread=False,
+                timeout=30.0,  # aguarda até 30s antes de falhar com "database is locked"
             )
             self.connection.row_factory = sqlite3.Row
+            try:
+                self.connection.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.DatabaseError:
+                pass
+            try:
+                self.connection.execute("PRAGMA busy_timeout = 30000")
+            except sqlite3.DatabaseError:
+                pass
         return self.connection
 
     def init_schema(self) -> None:
@@ -90,9 +105,10 @@ class Database:
     @contextmanager
     def cursor(self) -> Iterator[sqlite3.Cursor]:
         conn = self.connect()
-        cursor = conn.cursor()
-        try:
-            yield cursor
-            conn.commit()
-        finally:
-            cursor.close()
+        with self._lock:
+            cursor = conn.cursor()
+            try:
+                yield cursor
+                conn.commit()
+            finally:
+                cursor.close()

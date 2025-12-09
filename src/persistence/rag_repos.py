@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from typing import Iterable, List, Optional
 
 from .db import Database
+
+
+class GlossaryDuplicateError(RuntimeError):
+    """Raised when a glossary term violates uniqueness constraints."""
 
 
 class GlossaryRepository:
@@ -19,13 +24,16 @@ class GlossaryRepository:
         notes: str | None = None,
     ) -> int:
         with self.db.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO glossary_entries (term_src, lang_src, term_tgt, lang_tgt, notes)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (term_src, lang_src, term_tgt, lang_tgt, notes),
-            )
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO glossary_entries (term_src, lang_src, term_tgt, lang_tgt, notes)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (term_src, lang_src, term_tgt, lang_tgt, notes),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise GlossaryDuplicateError(str(exc)) from exc
             return cursor.lastrowid
 
     def list_entries(
@@ -80,10 +88,13 @@ class GlossaryRepository:
         if not fields:
             return False
         with self.db.cursor() as cursor:
-            cursor.execute(
-                f"UPDATE glossary_entries SET {', '.join(fields)} WHERE id = ?",
-                (*params, entry_id),
-            )
+            try:
+                cursor.execute(
+                    f"UPDATE glossary_entries SET {', '.join(fields)} WHERE id = ?",
+                    (*params, entry_id),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise GlossaryDuplicateError(str(exc)) from exc
             return cursor.rowcount > 0
 
     def delete_entry(self, entry_id: int) -> bool:
