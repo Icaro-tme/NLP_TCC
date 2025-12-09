@@ -13,7 +13,7 @@ from .base_controller import BaseController
 from ...core.config import PipelineConfig, TranslationConfig, PathsConfig, RagConfig
 from ...persistence.db import Database
 from ...persistence.repos import DocumentRepository, NodeRepository
-from ...services.translation_pipeline import ServicoTraducao
+from ...services.translation_pipeline import ServicoTraducao, PlaceholderValidationError
 from ..models.process_models import ProcessRequest
 from ...services.export_service import HTMLExportService
 
@@ -76,12 +76,20 @@ class ProcessController(BaseController):
             document_id = doc_repo.upsert_document(doc_name, cfg_baseline.source_lang, req.language, None)
             node_repo.delete_nodes_by_document(document_id)
             node_repo.insert_nodes(document_id, nodes)
+            placeholder_errors: list[dict] = []
+            glossary_matches: list[dict] = []
             if req.mode == "doc":
-                self._process_mode_doc(cfg_baseline, cfg_adapt, node_repo, document_id, req.language)
+                err, matches = self._process_mode_doc(cfg_baseline, cfg_adapt, node_repo, document_id, req.language, doc_name)
+                placeholder_errors.extend(err)
+                glossary_matches.extend(matches)
             elif req.mode == "window":
-                self._process_mode_window(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language, req.window_size)
+                err, matches = self._process_mode_window(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language, req.window_size, doc_name)
+                placeholder_errors.extend(err)
+                glossary_matches.extend(matches)
             elif req.mode == "node":
-                self._process_mode_node(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language)
+                err, matches = self._process_mode_node(cfg_baseline, cfg_adapt, node_repo, document_id, req.source_lang, req.language, doc_name)
+                placeholder_errors.extend(err)
+                glossary_matches.extend(matches)
             else:
                 raise HTTPException(status_code=400, detail=f"Modo não suportado: {req.mode}")
 
@@ -100,7 +108,7 @@ class ProcessController(BaseController):
             out_adapted = results_html_dir / f"{doc_name}_adapted_{req.language}.html"
             exporter.export_variant(indexed_html, final_nodes, "adapted", out_adapted)
 
-            return {
+            response = {
                 "documento": doc_name,
                 "idioma": req.language,
                 "nos": len(nodes),
@@ -109,6 +117,11 @@ class ProcessController(BaseController):
                 "modo": req.mode,
                 "backend": "google",
             }
+            if placeholder_errors:
+                response["placeholder_errors"] = placeholder_errors
+            if glossary_matches:
+                response["glossary_matches"] = glossary_matches
+            return response
 
 
 
@@ -177,51 +190,94 @@ class ProcessController(BaseController):
         def _list_nodes(node_repo: NodeRepository, document_id: int) -> list[dict]:
             return node_repo.list_nodes(document_id)
 
-        def _process_doc(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, language: str):
+        def _process_doc(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, language: str, doc_name: str):
             nodes_all = _list_nodes(node_repo, document_id)
-            base = ServicoTraducao(cfg_baseline).traduzir_doc(nodes_all, target_lang=language)
+            ts_base = ServicoTraducao(cfg_baseline)
+            ts_base.glossary_enabled = False
+            ts_base.doc_name = doc_name
+            ts_base.document_id = document_id
+            base = ts_base.traduzir_doc(nodes_all, target_lang=language)
+            errors = list(ts_base.placeholder_errors)
+            matches = list(ts_base.glossary_match_records)
             adapted = None
             context_used = None
             if cfg_adapt:
-                adapted = ServicoTraducao(cfg_adapt).traduzir_doc(nodes_all, target_lang=language)
+                ts_adapt = ServicoTraducao(cfg_adapt)
+                ts_adapt.doc_name = doc_name
+                ts_adapt.document_id = document_id
+                adapted = ts_adapt.traduzir_doc(nodes_all, target_lang=language)
+                errors.extend(ts_adapt.placeholder_errors)
+                matches.extend(ts_adapt.glossary_match_records)
             _save_baseline_and_adapted(node_repo, nodes_all, base, adapted, context_used)
+            return errors, matches
 
-        def _process_window(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str, window_size: int = 3):
+        def _process_window(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str, window_size: int, doc_name: str):
             nodes_all = _list_nodes(node_repo, document_id)
             ts_base = ServicoTraducao(cfg_baseline)
+            ts_base.glossary_enabled = False
+            ts_base.doc_name = doc_name
+            ts_base.document_id = document_id
             ts_base.window_size = max(1, int(window_size))
             baseline_map = ts_base.traduzir_window(nodes_all, target_lang=language)
+            errors = list(ts_base.placeholder_errors)
+            matches = list(ts_base.glossary_match_records)
             adapted_map = None
             context_used = None
             if cfg_adapt:
                 ts_adapt = ServicoTraducao(cfg_adapt)
+                ts_adapt.doc_name = doc_name
+                ts_adapt.document_id = document_id
                 ts_adapt.window_size = ts_base.window_size
                 # Para contexto por janela, podemos usar o mesmo texto da janela ou simplificar por nó; aqui reaproveitamos janela interna do serviço
                 adapted_map = ts_adapt.traduzir_window(nodes_all, target_lang=language)
                 # Contexto agregado não é trivial por janela; mantemos None ou poderíamos computar por janela separadamente
+                errors.extend(ts_adapt.placeholder_errors)
+                matches.extend(ts_adapt.glossary_match_records)
             _save_baseline_and_adapted(node_repo, nodes_all, baseline_map, adapted_map, context_used)
+            return errors, matches
 
-        def _process_node(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str):
+        def _process_node(cfg_baseline: PipelineConfig, cfg_adapt: PipelineConfig | None, node_repo: NodeRepository, document_id: int, source_lang: str, language: str, doc_name: str):
             nodes_all = _list_nodes(node_repo, document_id)
             ts_base = ServicoTraducao(cfg_baseline)
+            ts_base.glossary_enabled = False
+            ts_base.doc_name = doc_name
+            ts_base.document_id = document_id
             adapted_map = None
             context_used = None
+            baseline_map: dict[int, str] = {}
             # Baseline nó a nó
             for n in nodes_all:
                 btxt = ts_base.traduzir_node(n, target_lang=language)
                 node_repo.save_baseline(node_id=n["id"], translation=btxt)
+                baseline_map[n["id"]] = btxt
+            errors = list(ts_base.placeholder_errors)
+            matches = list(ts_base.glossary_match_records)
             if cfg_adapt:
                 ts_adapt = ServicoTraducao(cfg_adapt)
+                ts_adapt.doc_name = doc_name
+                ts_adapt.document_id = document_id
                 adapted_map = {}
                 # Com RAG, poderíamos gerar contexto por nó
                 retriever = _get_retriever(cfg_adapt)
                 for n in nodes_all:
                     src = n.get("original_text", "")
                     contexto = _build_context(retriever, src, cfg_adapt) if src.strip() else None
-                    atxt = ts_adapt._ensure_backend().translate(src, source_lang=source_lang, target_lang=language, contexto=contexto) if src.strip() else src
-                    adapted_map[n["id"]] = atxt
+                    if src.strip():
+                        translated = ts_adapt._ensure_backend().translate(src, source_lang=source_lang, target_lang=language, contexto=contexto)
+                        clean = translated.strip()
+                        try:
+                            ts_adapt._validate_translation(n, clean)
+                        except PlaceholderValidationError as exc:
+                            ts_adapt._handle_placeholder_error(n, clean, exc, language, mode="node")
+                            clean = src
+                    else:
+                        clean = src
+                    adapted_map[n["id"]] = clean
                 # Contexto global não se aplica; mantemos None
-            _save_baseline_and_adapted(node_repo, nodes_all, {n["id"]: node_repo.get_node(n["id"]).get("baseline_text", "") for n in nodes_all}, adapted_map, context_used)
+                errors.extend(ts_adapt.placeholder_errors)
+                matches.extend(ts_adapt.glossary_match_records)
+            _save_baseline_and_adapted(node_repo, nodes_all, baseline_map, adapted_map, context_used)
+            return errors, matches
 
         # Bind helpers to instance for readability
         self._process_mode_doc = _process_doc

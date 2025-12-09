@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from ..controllers.base_controller import BaseController
 from ...persistence.db import Database
-from ...persistence.rag_repos import GlossaryRepository
+from ...persistence.rag_repos import GlossaryRepository, GlossaryDuplicateError
 from ...core.config import PathsConfig
 from ..models.glossary_models import GlossaryCreate, GlossaryUpdate
 
@@ -32,13 +32,19 @@ class GlossaryController(BaseController):
             description="Adiciona um novo termo ao glossário com idiomas de origem e destino e notas opcionais.",
         )
         def criar_entrada(payload: GlossaryCreate):
-            entry_id = self.repo.add_entry(
-                term_src=payload.term_src,
-                lang_src=payload.lang_src,
-                term_tgt=payload.term_tgt,
-                lang_tgt=payload.lang_tgt,
-                notes=payload.notes,
-            )
+            try:
+                entry_id = self.repo.add_entry(
+                    term_src=payload.term_src,
+                    lang_src=payload.lang_src,
+                    term_tgt=payload.term_tgt,
+                    lang_tgt=payload.lang_tgt,
+                    notes=payload.notes,
+                )
+            except GlossaryDuplicateError:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Termo já cadastrado para essa combinação de idiomas.",
+                )
             return {"id": entry_id}
 
         @r.put(
@@ -47,14 +53,20 @@ class GlossaryController(BaseController):
             description="Atualiza os campos de uma entrada existente do glossário pelo seu ID.",
         )
         def atualizar_entrada(entrada_id: int, payload: GlossaryUpdate):
-            ok = self.repo.update_entry(
-                entrada_id,
-                term_src=payload.term_src,
-                lang_src=payload.lang_src,
-                term_tgt=payload.term_tgt,
-                lang_tgt=payload.lang_tgt,
-                notes=payload.notes,
-            )
+            try:
+                ok = self.repo.update_entry(
+                    entrada_id,
+                    term_src=payload.term_src,
+                    lang_src=payload.lang_src,
+                    term_tgt=payload.term_tgt,
+                    lang_tgt=payload.lang_tgt,
+                    notes=payload.notes,
+                )
+            except GlossaryDuplicateError:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Termo já cadastrado para essa combinação de idiomas.",
+                )
             if not ok:
                 raise HTTPException(status_code=404, detail="entry not updated or not found")
             return {"updated": True}
